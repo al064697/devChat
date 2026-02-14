@@ -81,7 +81,7 @@ def handle_message(data):
     
     timestamp = datetime.now().isoformat()
     
-    print(f"📨 [{room}] {username} ({msg_type}): {content[:50] if isinstance(content, str) else '<multimedia>'}...")
+    print(f" [{room}] {username} ({msg_type}): {content[:50] if isinstance(content, str) else '<multimedia>'}...")
     
     # Guarda en historial local
     if room not in message_history:

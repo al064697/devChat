@@ -32,7 +32,7 @@ def init_firebase():
         db = firestore.client()
         bucket = storage.bucket()
 
-        print("✅ Firebase inicializado correctamente")
+        print(" Firebase inicializado correctamente")
         return db, bucket
     
     except FileNotFoundError: 

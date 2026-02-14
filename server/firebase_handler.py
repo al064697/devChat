@@ -41,7 +41,7 @@ class FirebaseHandler:
             } 
         
         except Exception as e: 
-            print(f"❌ Error al guardar mensaje: {e}")
+            print(f" Error al guardar mensaje: {e}")
             return {'success': False, 'error': str(e)}
 
     def get_messages(self, room, limit=50):
@@ -64,7 +64,7 @@ class FirebaseHandler:
             return messages
         
         except Exception as e: 
-            print(f"❌ Error al obtener mensajes: {e}")
+            print(f" Error al obtener mensajes: {e}")
             return []
 
     # ============ MULTIMEDIA ============
@@ -95,11 +95,11 @@ class FirebaseHandler:
             blob.make_public() 
             url = blob.public_url
 
-            print(f"✅ Media guardada: {path}")
+            print(f" Media guardada: {path}")
             return url
         
         except Exception as e:
-            print(f"❌ Error al guardar media: {e}")
+            print(f" Error al guardar media: {e}")
             return None
     
     @staticmethod
