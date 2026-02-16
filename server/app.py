@@ -16,9 +16,10 @@ from flask_socketio import SocketIO, join_room, leave_room, emit
 from datetime import datetime
 from firebase_config import db, bucket
 from firebase_handler import FirebaseHandler
+from cloudinary_config import upload_to_cloudinary
 
 # Inicializa la aplicación Flask
-app = Flask(__name__, template_folder='../templates')
+app = Flask(__name__, template_folder='../templates', static_folder='../static') # Configura las carpetas de plantillas y archivos estáticos (CSS, JS, imágenes)
 app.config['SECRET_KEY'] = 'tu-clave-secreta-devChat-2026' # Configura una clave secretas oara sesiones seguras (se puede modificar más adelante)
 socketio = SocketIO(app, cors_allowed_origins="*") # Permite conexiones desde cualquier origen (útil para desarrollo, ajustar en producción)
 
@@ -154,6 +155,52 @@ def handle_typing(data):
 @socketio.on('disconnect')
 def handle_disconnect(): # Manejar desconexión
     print(f" Usuario desconectado: {request.sid}")
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    """
+    Endpoint para subir archivos multimedia (imágenes, videos, audio) a Cloudinary.
+    Recibe:
+    - file: El archivo a subir
+    - media_type: El tipo de archivo ('image', 'video', 'audio')
+    - room: La sala a la que pertenece el mensaje
+    - username: El usuario que envía el mensaje
+
+    Retorna: 
+    - JSON con el resultado de la subida (URL del archivo o error)
+    """
+    try: 
+        # Verifica que el archivo exista
+        if 'file' not in request.files: 
+            return {"success": False, "error": "No se encontró el archivo"}, 400
+        
+        file = request.files['file']
+        media_type = request.form.get('media_type', 'raw') # Por defecto, trata como 'raw' si no se especifica
+        room = request.form.get('room', 'default')
+        username = request.form.get('username', 'anonymous')
+
+        if file.filename == '':
+            return {"success": False, "error": "Archivo sin nombre"}, 400
+        
+        # Sube a Cloudinary
+        result = upload_to_cloudinary(file, media_type, room, username)
+
+        if result['success']:
+            # Si se subió correctamente, envía el mensaje a la sala
+            return {
+                "success": True,
+                "url": result['url'],
+                "public_id": result['public_id'],
+                "media_type": result['media_type']
+            }
+        else: 
+            return {
+                "success": False, 
+                "error": result['error']
+                }, 500
+    except Exception as e:
+        print(f"Error en /upload: {e}")
+        return {"success": False, "error": str(e)}, 500
 
 if __name__ == "__main__":
     print("Iniciando devChat...")

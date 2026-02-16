@@ -3,28 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SocketIO & Python - Chat con Salas</title>
+    <title>devChat - Real-time Developer Chat</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="../static/css/style.css" rel="stylesheet">
 </head>
-<body class="bg-light">
-    <div class="container mt-4">
-        <h1 class="text-center mb-4">devChat</h1>
-
-        <!-- Grupo de entrada para el nombre de usuario -->
-        <div class="input-group mb-3">
-            <input type="text" id="username" class="form-control" placeholder="Tu nombre de usuario">
-            <button id="setUsername" class="btn btn-success">Establecer</button>
+<body>
+    <div class="app-header">
+        <div class="container">
+            <h1 class="text-center app-title">⚡ devChat</h1>
+            <p class="text-center app-subtitle">Real-time communication for developers</p>
         </div>
+    </div>
 
-        <!-- Grupo de entrada para unirse a una sala -->
-        <div class="input-group mb-3">
-            <input type="text" id="roomName" class="form-control" placeholder="Nombre de la sala">
-            <button id="joinRoom" class="btn btn-primary">Unirse</button>
-            <button id="leaveRoom" class="btn btn-danger">Salir</button>
+    <div class="container mt-4">
+        <!-- Panel de control de usuario y sala -->
+        <div class="control-panel">
+            <!-- Grupo de entrada para el nombre de usuario -->
+            <div class="input-group mb-3">
+                <input type="text" id="username" class="form-control" placeholder="Tu nombre de usuario">
+                <button id="setUsername" class="btn btn-success">Establecer</button>
+            </div>
+
+            <!-- Grupo de entrada para unirse a una sala -->
+            <div class="input-group">
+                <input type="text" id="roomName" class="form-control" placeholder="Nombre de la sala">
+                <button id="joinRoom" class="btn btn-primary">Unirse</button>
+                <button id="leaveRoom" class="btn btn-danger">Salir</button>
+            </div>
         </div>
 
         <!-- Indicador de sala actual -->
-        <div class="alert alert-info" id="currentRoomInfo" style="display: none;">
+        <div class="room-info" id="currentRoomInfo" style="display: none;">
             <strong>Sala actual:</strong> <span id="currentRoomName">Ninguna</span>
             
             <!-- Lista de usuarios conectados en la sala -->
@@ -42,10 +57,11 @@
         </div>
 
         <!-- Campo para mostrar mensajes -->
-        <div class="card">
+        <div class="chat-container">
             <div class="card-body">
-                <ul id="messages" class="list-group mb-3" style="height: 300px; overflow-y: auto;"></ul>
-                <div class="input-group">
+                <ul id="messages" class="list-group mb-3"></ul>
+                <div class="message-controls">
+                    <div class="input-group">
                     <!-- Botón para seleccionar emojis -->
                     <button id="emojiBtn" class="btn btn-outline-secondary" type="button">👍</button>
                     
@@ -67,43 +83,44 @@
                     <!-- Botón para enviar mensaje -->
                     <button id="send" class="btn btn-primary">Enviar</button>
                 </div>
+                </div>
                 
                 <!-- Input oculto para seleccionar archivos de imagen -->
                 <!-- Se activa cuando el usuario hace clic en el botón 🖼️ -->
                 <input type="file" id="imageInput" accept="image/*" style="display: none;">
                 
                 <!-- Modal para captura de foto con cámara -->
-                <div id="cameraModal" class="card mt-2" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; width: 90%; max-width: 640px;">
+                <div id="cameraModal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; width: 90%; max-width: 640px;">
                     <div class="card-body">
-                        <h5>Capturar Foto</h5>
-                        <video id="cameraStream" autoplay style="width: 100%; max-height: 400px; background: #000;"></video>
+                        <h5>📸 Capturar Foto</h5>
+                        <video id="cameraStream" autoplay style="width: 100%; max-height: 400px;"></video>
                         <canvas id="cameraCanvas" style="display: none;"></canvas>
-                        <div class="mt-2">
-                            <button id="capturePhoto" class="btn btn-success">📸 Capturar</button>
-                            <button id="closeCameraModal" class="btn btn-secondary">Cerrar</button>
+                        <div class="mt-3">
+                            <button id="capturePhoto" class="btn btn-success me-2">📸 Capturar</button>
+                            <button id="closeCameraModal" class="btn btn-secondary">✖ Cerrar</button>
                         </div>
                     </div>
                 </div>
                 
                 <!-- Controles de grabación de audio -->
-                <div id="audioControls" class="alert alert-warning mt-2" style="display: none;">
+                <div id="audioControls" class="mt-2" style="display: none;">
                     <strong>🎤 Grabando audio...</strong>
                     <button id="stopAudio" class="btn btn-danger btn-sm ms-2">⏹ Detener</button>
-                    <button id="cancelAudio" class="btn btn-secondary btn-sm ms-2"> Cancelar</button>
+                    <button id="cancelAudio" class="btn btn-secondary btn-sm ms-2">✖ Cancelar</button>
                 </div>
                 
                 <!-- Controles de grabación de video -->
-                <div id="videoControls" class="alert alert-danger mt-2" style="display: none;">
+                <div id="videoControls" class="mt-2" style="display: none;">
                     <strong>🎥 Grabando video...</strong>
-                    <video id="videoPreview" autoplay muted style="width: 100%; max-width: 320px; margin-top: 10px; background: #000;"></video>
+                    <video id="videoPreview" autoplay muted style="width: 100%; max-width: 320px; margin-top: 10px;"></video>
                     <div class="mt-2">
                         <button id="stopVideo" class="btn btn-danger btn-sm">⏹ Detener</button>
-                        <button id="cancelVideo" class="btn btn-secondary btn-sm ms-2"> Cancelar</button>
+                        <button id="cancelVideo" class="btn btn-secondary btn-sm ms-2">✖ Cancelar</button>
                     </div>
                 </div>
                 
                 <!-- Panel de emojis -->
-                <div id="emojiPicker" class="card mt-2" style="display: none; position: absolute; z-index: 1000; max-width: 320px;">
+                <div id="emojiPicker" style="display: none; position: absolute; z-index: 9999; max-width: 320px;">
                     <div class="card-body">
                         <div id="emojiList" style="display: flex; flex-wrap: wrap; gap: 5px;">
                             <!-- Los emojis se generan dinámicamente con JavaScript -->
@@ -120,592 +137,7 @@
     <!-- Se importa jQuery para facilitar la manipulación del DOM -->
     <script src="https://code.jquery.com/jquery-4.0.0.min.js" integrity="sha256-OaVG6prZf4v69dPg6PhVattBXkcOWQB62pdZ3ORyrao=" crossorigin="anonymous"></script>
 
-    <script>
-        // Se crea una conexión con el servidor
-        const socket = io({
-            reconnection: true,  // Habilita la reconexión automática
-            reconnectionAttempts: 5,  // Número de intentos de reconexión
-            reconnectionDelay: 1000,  // Tiempo entre intentos en milisegundos
-        }); 
-
-        let username = '';  // Variable para almacenar el nombre de usuario
-        let currentRoom = null;  // Variable para almacenar la sala actual
-        let typingTimeout = null;  // Temporizador para el indicador de "escribiendo..."
-        
-        // Variables para manejo de captura de medios
-        let mediaRecorder = null;  // Grabador de audio/video
-        let recordedChunks = [];  // Fragmentos de audio/video grabados
-        let cameraStream = null;  // Stream de la cámara para fotos
-        let videoStream = null;  // Stream de video para grabación
-
-        // Lista de emojis disponibles en el selector
-        const emojis = ['😊', '😂', '❤️', '👍', '🔥', '🎉', '😍', '🚀', '💯', '🤔', '😎', '🥳', '😢', '😭', '😡', '💪', '🙏', '✨'];
-
-        // Generar botones de emojis dinámicamente
-        emojis.forEach(emoji => {
-            $('#emojiList').append(`<button class="btn btn-light emoji-item" style="font-size: 1.5em;">${emoji}</button>`);
-        });
-
-        // Función para formatear el timestamp (marca de tiempo) de manera legible
-        // Convierte "2026-02-13T14:30:45.123456" a "14:30:45"
-        function formatTimestamp(isoString) {
-            const date = new Date(isoString);  // Crea un objeto Date desde el string ISO
-            const hours = date.getHours().toString().padStart(2, '0');  // Obtiene las horas (formato 24h)
-            const minutes = date.getMinutes().toString().padStart(2, '0');  // Obtiene los minutos
-            const seconds = date.getSeconds().toString().padStart(2, '0');  // Obtiene los segundos
-            return `${hours}:${minutes}:${seconds}`;  // Retorna en formato HH:MM:SS
-        }
-
-        // Función para detectar si un texto es solo un emoji
-        function isEmoji(str) {
-            // Regex para detectar emojis
-            const emojiRegex = /^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F|\p{Emoji_Modifier_Base})+$/u;
-            return emojiRegex.test(str.trim());
-        }
-
-        // Evento para establecer el nombre de usuario
-        $('#setUsername').on('click', function() {
-            const inputUsername = $('#username').val().trim();
-            if (inputUsername.length > 0) {
-                username = inputUsername;
-                $('#username').prop('disabled', true);
-                $('#setUsername').prop('disabled', true);
-                alert(`Nombre de usuario establecido: ${username}`);
-            } else {
-                alert("El nombre de usuario no puede estar vacío.");
-            }
-        });
-
-        // Evento para establecer el nombre de usuario al presionar Enter
-        $('#username').on('keypress', function(e) {
-            if (e.key === 'Enter') {
-                $('#setUsername').click();
-            }
-        });
-
-        // Evento para unirse a una sala
-        $('#joinRoom').on('click', function() {
-            const roomName = $('#roomName').val().trim();
-            
-            // Validaciones
-            if (!username) {
-                alert("Debes establecer un nombre de usuario antes de unirte a una sala.");
-                return;
-            }
-            if (roomName.length === 0) {
-                alert("El nombre de la sala no puede estar vacío.");
-                return;
-            }
-            if (currentRoom) {
-                alert("Ya estás en una sala. Sal primero antes de unirte a otra.");
-                return;
-            }
-
-            // Guarda la sala actual
-            currentRoom = roomName;
-            
-            // Emite el evento al servidor
-            socket.emit("join_room", { room: roomName, username });
-            
-            // Actualiza la interfaz
-            $('#currentRoomInfo').show();
-            $('#currentRoomName').text(roomName);
-            $('#messages').append(`<li class="list-group-item text-success">Te has unido a la sala: ${roomName}</li>`);
-            $('#messages').scrollTop($('#messages')[0].scrollHeight);
-        });
-
-        // Evento para salir de una sala
-        $('#leaveRoom').on('click', function() {
-            if (!currentRoom) {
-                alert("No estás en ninguna sala.");
-                return;
-            }
-
-            // Emite el evento al servidor
-            socket.emit("leave_room", { room: currentRoom, username });
-            
-            // Actualiza la interfaz
-            $('#messages').append(`<li class="list-group-item text-warning">Has salido de la sala: ${currentRoom}</li>`);
-            $('#messages').scrollTop($('#messages')[0].scrollHeight);
-            currentRoom = null;
-            $('#currentRoomInfo').hide();
-            $('#usersList').empty();
-        });
-
-        // Mostrar/ocultar el panel de emojis
-        $('#emojiBtn').on('click', function() {
-            $('#emojiPicker').toggle();
-        });
-
-        // Evento para abrir el selector de imágenes
-        $('#imageBtn').on('click', function() {
-            $('#imageInput').click();
-        });
-
-        // Evento cuando el usuario selecciona una imagen
-        $('#imageInput').on('change', function(event) {
-            const file = event.target.files[0];
-            
-            // Validaciones
-            if (!file) return;
-            if (!file.type.startsWith('image/')) {
-                alert("Por favor selecciona un archivo de imagen válido.");
-                return;
-            }
-            const maxSize = 5 * 1024 * 1024; // 5MB
-            if (file.size > maxSize) {
-                alert("La imagen es demasiado grande. Máximo 5MB.");
-                return;
-            }
-
-            // FileReader para convertir la imagen a base64
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const base64Image = e.target.result;
-                socket.emit("message", { 
-                    username,
-                    type: "image",
-                    content: base64Image,
-                    room: currentRoom
-                });
-            };
-            reader.readAsDataURL(file);
-            $('#imageInput').val('');
-        });
-
-        // ===== FUNCIONES PARA CAPTURA DE FOTO CON CÁMARA =====
-        
-        // Abrir modal de cámara para tomar foto
-        $('#cameraBtn').on('click', async function() {
-            if (!username || !currentRoom) {
-                alert("Debes establecer un usuario y unirte a una sala primero.");
-                return;
-            }
-            
-            try {
-                // Solicita acceso a la cámara (video sin audio)
-                cameraStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 1280, height: 720 },  // Resolución HD
-                    audio: false 
-                });
-                
-                // Conecta el stream al elemento video
-                $('#cameraStream')[0].srcObject = cameraStream;
-                $('#cameraModal').show();
-            } catch (err) {
-                console.error('Error al acceder a la cámara:', err);
-                alert('No se pudo acceder a la cámara. Verifica los permisos.');
-            }
-        });
-        
-        // Capturar foto desde el stream de video
-        $('#capturePhoto').on('click', function() {
-            const video = $('#cameraStream')[0];
-            const canvas = $('#cameraCanvas')[0];
-            
-            // Ajusta el tamaño del canvas al tamaño del video
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            
-            // Dibuja el frame actual del video en el canvas
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // Convierte el canvas a base64 (JPEG con 85% calidad)
-            const imageData = canvas.toDataURL('image/jpeg', 0.85);
-            
-            // Verifica el tamaño (límite 5MB)
-            const sizeInMB = (imageData.length * 3/4) / (1024 * 1024);
-            if (sizeInMB > 5) {
-                alert('La foto es demasiado grande. Intenta con menor resolución.');
-                return;
-            }
-            
-            // Envía la foto al servidor
-            socket.emit('message', {
-                username,
-                type: 'image',
-                content: imageData,
-                room: currentRoom
-            });
-            
-            // Cierra el modal y detiene la cámara
-            closeCameraModal();
-        });
-        
-        // Cerrar modal de cámara
-        $('#closeCameraModal').on('click', closeCameraModal);
-        
-        function closeCameraModal() {
-            if (cameraStream) {
-                // Detiene todos los tracks del stream
-                cameraStream.getTracks().forEach(track => track.stop());
-                cameraStream = null;
-            }
-            $('#cameraModal').hide();
-        }
-        
-        // ===== FUNCIONES PARA GRABACIÓN DE AUDIO =====
-        
-        // Iniciar grabación de audio
-        $('#audioBtn').on('click', async function() {
-            if (!username || !currentRoom) {
-                alert("Debes establecer un usuario y unirte a una sala primero.");
-                return;
-            }
-            
-            try {
-                // Solicita acceso al micrófono
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                
-                // Crea el grabador con formato webm
-                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-                recordedChunks = [];
-                
-                // Cuando hay datos disponibles, los almacena
-                mediaRecorder.ondataavailable = function(event) {
-                    if (event.data.size > 0) {
-                        recordedChunks.push(event.data);
-                    }
-                };
-                
-                // Cuando termina la grabación, procesa el audio
-                mediaRecorder.onstop = function() {
-                    // Crea un Blob con todos los fragmentos grabados
-                    const audioBlob = new Blob(recordedChunks, { type: 'audio/webm' });
-                    
-                    // Verifica el tamaño (límite 10MB para audio)
-                    if (audioBlob.size > 10 * 1024 * 1024) {
-                        alert('El audio es demasiado largo (máx 10MB).');
-                        return;
-                    }
-                    
-                    // Convierte el Blob a base64
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        socket.emit('message', {
-                            username,
-                            type: 'audio',
-                            content: e.target.result,
-                            room: currentRoom
-                        });
-                    };
-                    reader.readAsDataURL(audioBlob);
-                    
-                    // Detiene el stream
-                    stream.getTracks().forEach(track => track.stop());
-                };
-                
-                // Inicia la grabación
-                mediaRecorder.start();
-                $('#audioControls').show();
-                
-            } catch (err) {
-                console.error('Error al acceder al micrófono:', err);
-                alert('No se pudo acceder al micrófono. Verifica los permisos.');
-            }
-        });
-        
-        // Detener grabación de audio
-        $('#stopAudio').on('click', function() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-                $('#audioControls').hide();
-            }
-        });
-        
-        // Cancelar grabación de audio
-        $('#cancelAudio').on('click', function() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-                recordedChunks = [];  // Descarta los datos
-                $('#audioControls').hide();
-            }
-        });
-        
-        // ===== FUNCIONES PARA GRABACIÓN DE VIDEO =====
-        
-        // Iniciar grabación de video
-        $('#videoBtn').on('click', async function() {
-            if (!username || !currentRoom) {
-                alert("Debes establecer un usuario y unirte a una sala primero.");
-                return;
-            }
-            
-            try {
-                // Solicita acceso a cámara y micrófono
-                videoStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 640, height: 480 },  // Resolución reducida para menor tamaño
-                    audio: true 
-                });
-                
-                // Muestra preview del video
-                $('#videoPreview')[0].srcObject = videoStream;
-                
-                // Crea el grabador
-                mediaRecorder = new MediaRecorder(videoStream, { mimeType: 'video/webm' });
-                recordedChunks = [];
-                
-                // Almacena los datos
-                mediaRecorder.ondataavailable = function(event) {
-                    if (event.data.size > 0) {
-                        recordedChunks.push(event.data);
-                    }
-                };
-                
-                // Procesa el video al terminar
-                mediaRecorder.onstop = function() {
-                    const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
-                    
-                    // Verifica el tamaño (límite 20MB para video)
-                    if (videoBlob.size > 20 * 1024 * 1024) {
-                        alert('El video es demasiado largo (máx 20MB). Intenta grabaciones más cortas.');
-                        videoStream.getTracks().forEach(track => track.stop());
-                        return;
-                    }
-                    
-                    // Convierte a base64
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        socket.emit('message', {
-                            username,
-                            type: 'video',
-                            content: e.target.result,
-                            room: currentRoom
-                        });
-                    };
-                    reader.readAsDataURL(videoBlob);
-                    
-                    // Detiene el stream
-                    videoStream.getTracks().forEach(track => track.stop());
-                };
-                
-                // Inicia la grabación
-                mediaRecorder.start();
-                $('#videoControls').show();
-                
-            } catch (err) {
-                console.error('Error al acceder a cámara/micrófono:', err);
-                alert('No se pudo acceder a la cámara/micrófono. Verifica los permisos.');
-            }
-        });
-        
-        // Detener grabación de video
-        $('#stopVideo').on('click', function() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-                $('#videoControls').hide();
-            }
-        });
-        
-        // Cancelar grabación de video
-        $('#cancelVideo').on('click', function() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-                recordedChunks = [];  // Descarta los datos
-                $('#videoControls').hide();
-                if (videoStream) {
-                    videoStream.getTracks().forEach(track => track.stop());
-                }
-            }
-        });
-        
-        // Insertar emoji al hacer clic
-        $(document).on('click', '.emoji-item', function() {
-            const emoji = $(this).text();
-            $('#myMessage').val($('#myMessage').val() + emoji);
-            $('#emojiPicker').hide();
-            $('#myMessage').focus();
-        });
-
-        // Cerrar el panel de emojis al hacer clic fuera
-        $(document).on('click', function(e) {
-            if (!$(e.target).closest('#emojiBtn, #emojiPicker').length) {
-                $('#emojiPicker').hide();
-            }
-        });
-
-        // El navegador escucha los mensajes que el servidor envía
-        socket.on("message", function(msg) {
-            if (typeof msg === 'string') {
-                // Mensaje de sistema
-                $('#messages').append(`<li class="list-group-item text-muted">${msg}</li>`);
-            } else {
-                // Mensaje de usuario
-                const time = formatTimestamp(msg.timestamp);
-                
-                if (msg.type === "emoji") {
-                    $('#messages').append(`
-                        <li class="list-group-item">
-                            <small class="text-muted">[${time}]</small>
-                            <strong>${msg.username}:</strong> 
-                            <span style="font-size: 3em;">${msg.content}</span>
-                        </li>
-                    `);
-                } else if (msg.type === "image") {
-                    $('#messages').append(`
-                        <li class="list-group-item">
-                            <small class="text-muted">[${time}]</small>
-                            <strong>${msg.username}:</strong><br>
-                            <img src="${msg.content}" style="max-width: 100%; max-height: 300px; border-radius: 8px; margin-top: 5px;" alt="Imagen">
-                        </li>
-                    `);
-                } else if (msg.type === "audio") {
-                    // Mensaje de audio con reproductor HTML5
-                    $('#messages').append(`
-                        <li class="list-group-item">
-                            <small class="text-muted">[${time}]</small>
-                            <strong>${msg.username}:</strong> 🎤 Audio<br>
-                            <audio controls style="max-width: 100%; margin-top: 5px;">
-                                <source src="${msg.content}" type="audio/webm">
-                                Tu navegador no soporta audio HTML5.
-                            </audio>
-                        </li>
-                    `);
-                } else if (msg.type === "video") {
-                    // Mensaje de video con reproductor HTML5
-                    $('#messages').append(`
-                        <li class="list-group-item">
-                            <small class="text-muted">[${time}]</small>
-                            <strong>${msg.username}:</strong> 🎥 Video<br>
-                            <video controls style="max-width: 100%; max-height: 400px; border-radius: 8px; margin-top: 5px;">
-                                <source src="${msg.content}" type="video/webm">
-                                Tu navegador no soporta video HTML5.
-                            </video>
-                        </li>
-                    `);
-                } else {
-                    $('#messages').append(`
-                        <li class="list-group-item">
-                            <small class="text-muted">[${time}]</small>
-                            <strong>${msg.username}:</strong> ${msg.content}
-                        </li>
-                    `);
-                }
-            }
-            $('#messages').scrollTop($('#messages')[0].scrollHeight);
-        });
-
-        // Evento cuando el usuario está escribiendo
-        $('#myMessage').on('input', function() {
-            if (currentRoom && username) {
-                socket.emit('typing', {
-                    username: username,
-                    room: currentRoom,
-                    is_typing: true
-                });
-                
-                clearTimeout(typingTimeout);
-                typingTimeout = setTimeout(function() {
-                    socket.emit('typing', {
-                        username: username,
-                        room: currentRoom,
-                        is_typing: false
-                    });
-                }, 2000);
-            }
-        });
-
-        // Evento para enviar mensajes al presionar Enter
-        $('#myMessage').on('keypress', function(e) {
-            if (e.key === 'Enter') {
-                $('#send').click();
-                if (currentRoom && username) {
-                    clearTimeout(typingTimeout);
-                    socket.emit('typing', {
-                        username: username,
-                        room: currentRoom,
-                        is_typing: false
-                    });
-                }
-            }
-        });
-
-        // Evento para enviar mensajes
-        $('#send').on('click', function() { 
-            const message = $('#myMessage').val().trim();
-            
-            // Validaciones
-            if (!username) {
-                alert("Debes establecer un nombre de usuario antes de enviar mensajes.");
-                return;
-            }
-            if (!currentRoom) {
-                alert("Debes unirte a una sala antes de enviar mensajes.");
-                return;
-            }
-            if (message.length === 0) {
-                alert("El mensaje no puede estar vacío.");
-                return;
-            }
-            if (message.length > 1000) {
-                alert("El mensaje no puede exceder los 1000 caracteres.");
-                return;
-            }
-
-            // Notifica que dejó de escribir
-            clearTimeout(typingTimeout);
-            socket.emit('typing', {
-                username: username,
-                room: currentRoom,
-                is_typing: false
-            });
-
-            // Envía el mensaje
-            if (isEmoji(message)) {
-                socket.emit("message", { 
-                    username, 
-                    type: "emoji", 
-                    content: message,
-                    room: currentRoom
-                });
-            } else {
-                socket.emit("message", { 
-                    username, 
-                    type: "text", 
-                    content: message,
-                    room: currentRoom
-                });
-            }
-            
-            $('#myMessage').val('');
-        });
-
-        // Evento para recibir actualizaciones de la lista de usuarios
-        socket.on('update_user_list', function(data) {
-            const users = data.users;
-            $('#usersList').empty();
-            users.forEach(function(user) {
-                $('#usersList').append(`<li>${user}</li>`);
-            });
-        });
-
-        // Evento para mostrar el indicador "está escribiendo..."
-        socket.on('user_typing', function(data) {
-            const typingUser = data.username;
-            const isTyping = data.is_typing;
-            
-            if (isTyping) {
-                $('#typingIndicator').text(`${typingUser} está escribiendo...`).show();
-            } else {
-                $('#typingIndicator').hide();
-            }
-        });
-
-        // Manejo de errores de conexión
-        socket.on("connect_error", () => {
-            alert("No se pudo conectar al servidor. Verifica tu conexión.");
-        });
-
-        socket.on("disconnect", () => {
-            $('#messages').append(`<li class="list-group-item text-danger">Te has desconectado. Intentando reconectar...</li>`);
-            $('#messages').scrollTop($('#messages')[0].scrollHeight);
-        });
-
-        socket.on("connect", () => {
-            $('#messages').append(`<li class="list-group-item text-success">Conectado al servidor.</li>`);
-            $('#messages').scrollTop($('#messages')[0].scrollHeight);
-        });
-    </script> 
+    <!-- Lógica del cliente -->
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script> 
 </body>
 </html>
