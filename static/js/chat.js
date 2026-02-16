@@ -18,6 +18,22 @@
         // Lista de emojis disponibles en el selector
         const emojis = ['😊', '😂', '❤️', '👍', '🔥', '🎉', '😍', '🚀', '💯', '🤔', '😎', '🥳', '😢', '😭', '😡', '💪', '🙏', '✨'];
 
+        // Función helper para formatear tamaño de archivo
+        function formatFileSize(bytes) {
+            if (!bytes || bytes === 0) return 'Desconocido';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        // Función para detectar si es archivo de código
+        function isCodeFile(fileName) {
+            const codeExts = ['js', 'ts', 'py', 'java', 'cpp', 'c', 'cs', 'rb', 'go', 'php', 'html', 'css', 'json', 'xml', 'yml', 'sh', 'sql'];
+            const ext = fileName.split('.').pop().toLowerCase();
+            return codeExts.includes(ext);
+        }
+
         // Generar botones de emojis dinámicamente
         emojis.forEach(emoji => {
             $('#emojiList').append(`<button class="btn btn-light emoji-item" style="font-size: 1.5em;">${emoji}</button>`);
@@ -114,35 +130,66 @@
             $('#emojiPicker').toggle();
         });
 
-        // Evento para abrir el selector de imágenes
-        $('#imageBtn').on('click', function() {
-            $('#imageInput').click();
+        // Boton unico para adjuntar (foto, video, audio, archivos)
+        $('#clipBtn').on('click', function() {
+            $('#clipInput').click();
         });
 
-        // Evento cuando el usuario selecciona una imagen
-        $('#imageInput').on('change', function(event) {
+        // Evento cuando el usuario selecciona un archivo
+        $('#clipInput').on('change', function(event) {
             const file = event.target.files[0];
-            
-            // Validaciones
-            if (!file) return;
-            if (!file.type.startsWith('image/')) {
-                alert("Por favor selecciona un archivo de imagen válido.");
-                return;
-            }
-            const maxSize = 25 * 1024 * 1024; // 25MB (Full HD)
-            if (file.size > maxSize) {
-                alert("La imagen es demasiado grande. Máximo 25MB.");
+
+            if (!username || !currentRoom) {
+                alert("Debes establecer un usuario y unirte a una sala primero.");
                 return;
             }
 
-            // FormData para enviar la imagen al servidor
+            if (!file) return;
+
+            const fileNameLower = (file.name || '').toLowerCase();
+            const isImage = file.type.startsWith('image/') || fileNameLower.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/);
+            const isVideo = file.type.startsWith('video/') || fileNameLower.match(/\.(mp4|mov|webm|mkv|avi)$/);
+            const isAudio = file.type.startsWith('audio/') || fileNameLower.match(/\.(mp3|wav|ogg|m4a|aac)$/);
+            const isPDF = file.type === 'application/pdf' || fileNameLower.match(/\.pdf$/);
+            const isOffice = fileNameLower.match(/\.(doc|docx|xls|xlsx|ppt|pptx)$/);
+
+            let maxSize = 50 * 1024 * 1024; // 50MB por defecto
+            if (isImage) {
+                maxSize = 25 * 1024 * 1024; // 25MB imagen
+            } else if (isVideo) {
+                maxSize = 100 * 1024 * 1024; // 100MB video
+            } else if (isAudio) {
+                maxSize = 30 * 1024 * 1024; // 30MB audio
+            }
+
+            if (file.size > maxSize) {
+                alert(`El archivo es demasiado grande. Maximo ${Math.round(maxSize / (1024 * 1024))}MB.`);
+                return;
+            }
+
+            let mediaType = 'raw';
+            let msgType = 'file';
+
+            if (isImage) {
+                mediaType = 'image';
+                msgType = 'image';
+            } else if (isVideo) {
+                mediaType = 'video';
+                msgType = 'video';
+            } else if (isAudio) {
+                mediaType = 'audio';
+                msgType = 'audio';
+            } else if (isPDF || isOffice) {
+                mediaType = 'raw';
+                msgType = 'file';
+            }
+
             const formData = new FormData();
             formData.append('file', file);
-            formData.append('media_type', 'image');
+            formData.append('media_type', mediaType);
             formData.append('room', currentRoom);
             formData.append('username', username);
 
-            // Envía la imagen al endpoint /upload
             fetch('/upload', {
                 method: 'POST',
                 body: formData
@@ -150,309 +197,26 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Envía el mensaje con la URL de Cloudinary
-                    socket.emit("message", { 
+                    const content = msgType === 'file' || msgType === 'audio'
+                        ? { url: data.url, filename: file.name, size: file.size }
+                        : data.url;
+
+                    socket.emit('message', {
                         username,
-                        type: "image",
-                        content: data.url,  // URL de Cloudinary en lugar de base64
+                        type: msgType,
+                        content: content,
                         room: currentRoom
                     });
                 } else {
-                    alert("Error al subir imagen: " + data.error);
+                    alert("Error al subir archivo: " + data.error);
                 }
             })
             .catch(error => {
                 console.error("Error:", error);
-                alert("Error al subir imagen");
+                alert("Error al subir archivo");
             });
 
-            $('#imageInput').val('');
-        });
-
-        // ===== FUNCIONES PARA CAPTURA DE FOTO CON CÁMARA =====
-        
-        // Abrir modal de cámara para tomar foto
-        $('#cameraBtn').on('click', async function() {
-            if (!username || !currentRoom) {
-                alert("Debes establecer un usuario y unirte a una sala primero.");
-                return;
-            }
-            
-            try {
-                // Solicita acceso a la cámara (video sin audio)
-                cameraStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 1920, height: 1080 },  // Resolución Full HD 1080p
-                    audio: false 
-                });
-                
-                // Conecta el stream al elemento video
-                $('#cameraStream')[0].srcObject = cameraStream;
-                $('#cameraModal').show();
-            } catch (err) {
-                console.error('Error al acceder a la cámara:', err);
-                alert('No se pudo acceder a la cámara. Verifica los permisos.');
-            }
-        });
-        
-        // Capturar foto desde el stream de video
-        $('#capturePhoto').on('click', function() {
-            const video = $('#cameraStream')[0];
-            const canvas = $('#cameraCanvas')[0];
-            
-            // Ajusta el tamaño del canvas al tamaño del video
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            
-            // Dibuja el frame actual del video en el canvas
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // Convierte el canvas a Blob
-            canvas.toBlob(function(blob) {
-                // FormData para subir la foto
-                const formData = new FormData();
-                formData.append('file', blob, 'photo.jpg');
-                formData.append('media_type', 'image');
-                formData.append('room', currentRoom);
-                formData.append('username', username);
-
-                fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        socket.emit('message', {
-                            username,
-                            type: 'image',
-                            content: data.url,
-                            room: currentRoom
-                        });
-                    } else {
-                        alert("Error al subir foto: " + data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error("Error:", error);
-                    alert("Error al subir foto");
-                });
-            }, 'image/jpeg', 0.85);
-            
-            // Cierra el modal y detiene la cámara
-            closeCameraModal();
-        });
-        
-        // Cerrar modal de cámara
-        $('#closeCameraModal').on('click', closeCameraModal);
-        
-        function closeCameraModal() {
-            if (cameraStream) {
-                // Detiene todos los tracks del stream
-                cameraStream.getTracks().forEach(track => track.stop());
-                cameraStream = null;
-            }
-            $('#cameraModal').hide();
-        }
-        
-        // ===== FUNCIONES PARA GRABACIÓN DE AUDIO =====
-        
-        // Iniciar grabación de audio
-        $('#audioBtn').on('click', async function() {
-            if (!username || !currentRoom) {
-                alert("Debes establecer un usuario y unirte a una sala primero.");
-                return;
-            }
-            
-            try {
-                // Solicita acceso al micrófono
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                
-                // Crea el grabador con formato webm
-                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-                recordedChunks = [];
-                
-                // Cuando hay datos disponibles, los almacena
-                mediaRecorder.ondataavailable = function(event) {
-                    if (event.data.size > 0) {
-                        recordedChunks.push(event.data);
-                    }
-                };
-                
-                // Cuando termina la grabación, procesa el audio
-                mediaRecorder.onstop = function() {
-                    // Crea un Blob con todos los fragmentos grabados
-                    const audioBlob = new Blob(recordedChunks, { type: 'audio/webm' });
-                    
-                    // Verifica el tamaño (límite 30MB para audio)
-                    if (audioBlob.size > 30 * 1024 * 1024) {
-                        alert('El audio es demasiado largo (máx 30MB).');
-                        stream.getTracks().forEach(track => track.stop());
-                        return;
-                    }
-                    
-                    // FormData para subir audio
-                    const formData = new FormData();
-                    formData.append('file', audioBlob, 'audio.webm');
-                    formData.append('media_type', 'audio');
-                    formData.append('room', currentRoom);
-                    formData.append('username', username);
-
-                    fetch('/upload', {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            socket.emit('message', {
-                                username,
-                                type: 'audio',
-                                content: data.url,  // URL de Cloudinary
-                                room: currentRoom
-                            });
-                        } else {
-                            alert("Error al subir audio: " + data.error);
-                        }
-                    })
-                    .catch(error => {
-                        console.error("Error:", error);
-                        alert("Error al subir audio");
-                    });
-
-                    // Detiene el stream
-                    stream.getTracks().forEach(track => track.stop());
-                };
-                
-                // Inicia la grabación
-                mediaRecorder.start();
-                $('#audioControls').show();
-                
-            } catch (err) {
-                console.error('Error al acceder al micrófono:', err);
-                alert('No se pudo acceder al micrófono. Verifica los permisos.');
-            }
-        });
-        
-        // Detener grabación de audio
-        $('#stopAudio').on('click', function() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-                $('#audioControls').hide();
-            }
-        });
-        
-        // Cancelar grabación de audio
-        $('#cancelAudio').on('click', function() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-                recordedChunks = [];  // Descarta los datos
-                $('#audioControls').hide();
-            }
-        });
-        
-        // ===== FUNCIONES PARA GRABACIÓN DE VIDEO =====
-        
-        // Iniciar grabación de video
-        $('#videoBtn').on('click', async function() {
-            if (!username || !currentRoom) {
-                alert("Debes establecer un usuario y unirte a una sala primero.");
-                return;
-            }
-            
-            try {
-                // Solicita acceso a cámara y micrófono
-                videoStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 1920, height: 1080 },  // Resolución Full HD 1080p
-                    audio: true 
-                });
-                
-                // Muestra preview del video
-                $('#videoPreview')[0].srcObject = videoStream;
-                
-                // Crea el grabador
-                mediaRecorder = new MediaRecorder(videoStream, { mimeType: 'video/webm' });
-                recordedChunks = [];
-                
-                // Almacena los datos
-                mediaRecorder.ondataavailable = function(event) {
-                    if (event.data.size > 0) {
-                        recordedChunks.push(event.data);
-                    }
-                };
-                
-                // Procesa el video al terminar
-                mediaRecorder.onstop = function() {
-                    const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
-                    
-                    // Verifica el tamaño (límite 100MB para video Full HD)
-                    if (videoBlob.size > 100 * 1024 * 1024) {
-                        alert('El video es demasiado largo (máx 100MB). Intenta grabaciones más cortas.');
-                        videoStream.getTracks().forEach(track => track.stop());
-                        return;
-                    }
-                    
-                    // FormData para subir video
-                    const formData = new FormData();
-                    formData.append('file', videoBlob, 'video.webm');
-                    formData.append('media_type', 'video');
-                    formData.append('room', currentRoom);
-                    formData.append('username', username);
-
-                    fetch('/upload', {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            socket.emit('message', {
-                                username,
-                                type: 'video',
-                                content: data.url,  // URL de Cloudinary
-                                room: currentRoom
-                            });
-                        } else {
-                            alert("Error al subir video: " + data.error);
-                        }
-                    })
-                    .catch(error => {
-                        console.error("Error:", error);
-                        alert("Error al subir video");
-                    });
-
-                    // Detiene el stream
-                    videoStream.getTracks().forEach(track => track.stop());
-                };
-                
-                // Inicia la grabación
-                mediaRecorder.start();
-                $('#videoControls').show();
-                
-            } catch (err) {
-                console.error('Error al acceder a cámara/micrófono:', err);
-                alert('No se pudo acceder a la cámara/micrófono. Verifica los permisos.');
-            }
-        });
-        
-        // Detener grabación de video
-        $('#stopVideo').on('click', function() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-                $('#videoControls').hide();
-            }
-        });
-        
-        // Cancelar grabación de video
-        $('#cancelVideo').on('click', function() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-                recordedChunks = [];  // Descarta los datos
-                $('#videoControls').hide();
-                if (videoStream) {
-                    videoStream.getTracks().forEach(track => track.stop());
-                }
-            }
+            $('#clipInput').val('');
         });
         
         // Insertar emoji al hacer clic
@@ -502,14 +266,20 @@
                         </li>
                     `);
                 } else if (msg.type === "audio") {
-                    // Mensaje de audio con reproductor HTML5
+                    const fileUrl = msg.content && msg.content.url ? msg.content.url : msg.content;
+                    const fileName = msg.content && msg.content.filename ? msg.content.filename : 'Audio';
                     $('#messages').append(`
                         <li class="list-group-item" data-own="${ownAttr}">
                             ${!isOwn ? `<strong>${msg.username}</strong>` : ''}
                             <div class="message-bubble">
-                                🎤 Audio
-                                <audio controls style="max-width: 100%; margin-top: 5px;">
-                                    <source src="${msg.content}" type="audio/webm">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                    <span>🎤</span>
+                                    <span style="font-size: 0.9em; word-break: break-word;">${fileName}</span>
+                                </div>
+                                <audio controls style="width: 100%; max-width: 300px; margin-top: 8px; display: block;">
+                                    <source src="${fileUrl}" type="audio/mpeg">
+                                    <source src="${fileUrl}" type="audio/webm">
+                                    <source src="${fileUrl}" type="audio/wav">
                                     Tu navegador no soporta audio HTML5.
                                 </audio>
                             </div>
@@ -522,11 +292,72 @@
                         <li class="list-group-item" data-own="${ownAttr}">
                             ${!isOwn ? `<strong>${msg.username}</strong>` : ''}
                             <div class="message-bubble">
-                                🎥 Video
                                 <video controls style="max-width: 250px; border-radius: 8px; margin-top: 5px;">
                                     <source src="${msg.content}" type="video/webm">
                                     Tu navegador no soporta video HTML5.
                                 </video>
+                            </div>
+                            <small>${time}</small>
+                        </li>
+                    `);
+                } else if (msg.type === "file") {
+                    const fileUrl = msg.content && msg.content.url ? msg.content.url : msg.content;
+                    const fileName = msg.content && msg.content.filename ? msg.content.filename : 'Archivo';
+                    const fileExt = fileName.split('.').pop().toLowerCase();
+                    
+                    let embedContent = '';
+                    let icon = '📎';
+                    let fileSize = msg.content.size ? formatFileSize(msg.content.size) : 'Desconocido';
+                    
+                    // Crear tabla de detalles
+                    let detailsTable = `
+                        <table class="table table-sm table-bordered" style="margin-top: 8px; font-size: 0.85em;">
+                            <tr><td><strong>Tipo:</strong></td><td>${fileExt.toUpperCase()}</td></tr>
+                            <tr><td><strong>Tamaño:</strong></td><td>${fileSize}</td></tr>
+                        </table>
+                    `;
+                    
+                    // PDF: usar embed directo  (funciona mejor que Google Docs Viewer)
+                    if (fileExt === 'pdf') {
+                        icon = '📄';
+                        const downloadUrl = `/download?url=${encodeURIComponent(fileUrl)}&filename=${encodeURIComponent(fileName)}`;
+                        embedContent = `${detailsTable}<embed src="${fileUrl}" type="application/pdf" style="width: 100%; height: 400px; border-radius: 8px; margin-top: 8px; border: 1px solid #ddd;" /><div style="margin-top: 8px; font-size: 0.85em; color: #666;">Si el PDF no carga, <a href="${downloadUrl}">descargar aquí</a></div>`;
+                    }
+                    // Office documents: mostrar con opciones mejoradas
+                    else if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(fileExt)) {
+                        if (fileExt === 'doc' || fileExt === 'docx') {
+                            icon = '📝';
+                        } else if (fileExt === 'xls' || fileExt === 'xlsx') {
+                            icon = '📊';
+                        } else if (fileExt === 'ppt' || fileExt === 'pptx') {
+                            icon = '🎯';
+                        }
+                        const onlinePath = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
+                        const downloadUrl = `/download?url=${encodeURIComponent(fileUrl)}&filename=${encodeURIComponent(fileName)}`;
+                        embedContent = `${detailsTable}<div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-top: 8px;"><p style="margin: 0; font-size: 0.9em;">📋 Documentos Office requieren:</p><ul style="margin: 8px 0 0 20px; padding: 0;"><li><a href="${downloadUrl}">Descargar</a> para usar localmente</li><li><a href="${onlinePath}" target="_blank" rel="noopener noreferrer" style="color: #0d6efd;">Ver Online</a> (puede requerir permisos)</li></ul></div>`;
+                    }
+                    // Archivos de codigo: mostrar con Highlight.js
+                    else if (isCodeFile(fileName)) {
+                        icon = '💻';
+                        const downloadUrl = `/download?url=${encodeURIComponent(fileUrl)}&filename=${encodeURIComponent(fileName)}`;
+                        embedContent = `${detailsTable}<div style="background: #282c34; color: #abb2bf; padding: 12px; border-radius: 6px; margin-top: 8px; max-height: 250px; overflow-y: auto; font-size: 0.85em;"><p style="margin: 0 0 8px 0;">Descarga el archivo para ver el código con sintaxis coloreada:</p></div><a href="${downloadUrl}" style="display: inline-block; padding: 8px 12px; background: #0d6efd; color: white; border-radius: 6px; text-decoration: none; margin-top: 8px; font-size: 0.9em;">📖 Ver/Descargar</a>`;
+                    }
+                    // Otros archivos: mostrar como descarga con tabla de detalles
+                    else {
+                        const downloadUrl = `/download?url=${encodeURIComponent(fileUrl)}&filename=${encodeURIComponent(fileName)}`;
+                        embedContent = `${detailsTable}<a href="${downloadUrl}" style="display: inline-block; padding: 8px 12px; background: #0d6efd; color: white; border-radius: 6px; text-decoration: none; margin-top: 8px; font-size: 0.9em;">⬇ Descargar ${fileName}</a>`;
+                    }
+                    
+                    $('#messages').append(`
+                        <li class="list-group-item" data-own="${ownAttr}" style="cursor: pointer;">
+                            ${!isOwn ? `<strong>${msg.username}</strong>` : ''}
+                            <div class="message-bubble">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                    <span>${icon}</span>
+                                    <span style="font-size: 0.9em; word-break: break-word; flex: 1;">${fileName}</span>
+                                    <small style="opacity: 0.7;">📌</small>
+                                </div>
+                                ${embedContent}
                             </div>
                             <small>${time}</small>
                         </li>
@@ -542,6 +373,27 @@
                 }
             }
             $('#messages').scrollTop($('#messages')[0].scrollHeight);
+        });
+
+        // Manejador de clic en archivos para expandir en modal
+        $(document).on('click', 'li.list-group-item[style*="cursor"]', function(e) {
+            if ($(e.target).closest('a, button, table').length) return; // No expandir si hace clic en link o botón
+            
+            const fileExt = $(this).find('.message-bubble strong, span').text().toLowerCase();
+            
+            // Si puede contener preview, expandir en modal
+            if (fileExt.includes('.pdf') || fileExt.match(/\.(doc|docx|xls|xlsx|ppt|pptx|js|ts|py|java|cpp|c|cs|rb|go|php|html|css|json|xml)$/i)) {
+                const bubble = $(this).find('.message-bubble');
+                const title = $(this).find('strong, span').first().text();
+                const downloadLink = $(this).find('a[href*="http"]').attr('href');
+                
+                $('#fileModalTitle').text('📎 ' + title);
+                $('#fileModalContent').html(bubble.html());
+                $('#fileModalDownload').attr('href', downloadLink);
+                
+                const modal = new bootstrap.Modal(document.getElementById('fileModal'));
+                modal.show();
+            }
         });
 
         // Evento cuando el usuario está escribiendo

@@ -11,16 +11,20 @@
 - FirebaseHandler es una clase personalizada para interactuar con Firebase (Firestore y Storage)
 """
 
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, send_file
 from flask_socketio import SocketIO, join_room, leave_room, emit
 from datetime import datetime
 from firebase_config import db, bucket
 from firebase_handler import FirebaseHandler
 from cloudinary_config import upload_to_cloudinary
+import requests
+from io import BytesIO
+import urllib.parse
 
 # Inicializa la aplicación Flask
 app = Flask(__name__, template_folder='../templates', static_folder='../static') # Configura las carpetas de plantillas y archivos estáticos (CSS, JS, imágenes)
 app.config['SECRET_KEY'] = 'tu-clave-secreta-devChat-2026' # Configura una clave secretas oara sesiones seguras (se puede modificar más adelante)
+app.config['MAX_CONTENT_LENGTH'] = 120 * 1024 * 1024  # 120MB limite de subida para multimedia
 socketio = SocketIO(app, cors_allowed_origins="*") # Permite conexiones desde cualquier origen (útil para desarrollo, ajustar en producción)
 
 # Inicializa Firebase Handler
@@ -112,13 +116,17 @@ def handle_leave_room(data):
 def handle_message(data):
     room = data['room']
     username = data['username'] 
-    msg_type = data['type']  # 'text', 'emoji', 'image', 'audio', 'video'
+    msg_type = data['type']  # 'text', 'emoji', 'image', 'audio', 'video', 'file'
     content = data['content'] 
     
     timestamp = datetime.now().isoformat() 
     
     print(f" [{room}] {username} ({msg_type}): {content[:50] if isinstance(content, str) else '<multimedia>'}...")
     
+    if msg_type not in {'text', 'emoji', 'image', 'audio', 'video', 'file'}:
+        emit('message', "Tipo de contenido no permitido.")
+        return
+
     # Guarda en Firestore si Firebase está disponible
     if firebase_handler:
         firebase_handler.save_message(room, username, msg_type, content, timestamp)
@@ -181,6 +189,13 @@ def upload_file():
 
         if file.filename == '':
             return {"success": False, "error": "Archivo sin nombre"}, 400
+
+        allowed_media = {'image', 'audio', 'video', 'raw'}
+        if media_type not in allowed_media:
+            return {"success": False, "error": "Tipo de archivo no permitido"}, 400
+
+        if media_type == 'image' and not (file.mimetype or "").startswith('image/'):
+            return {"success": False, "error": "El archivo no es una imagen válida"}, 400
         
         # Sube a Cloudinary
         result = upload_to_cloudinary(file, media_type, room, username)
@@ -200,6 +215,42 @@ def upload_file():
                 }, 500
     except Exception as e:
         print(f"Error en /upload: {e}")
+        return {"success": False, "error": str(e)}, 500
+
+@app.route('/download', methods=['GET'])
+def download_file():
+    """
+    Endpoint para descargar archivos desde Cloudinary con el nombre original.
+    Parámetros:
+    - url: URL del archivo en Cloudinary
+    - filename: Nombre del archivo a descargar
+    """
+    try:
+        file_url = request.args.get('url')
+        filename = request.args.get('filename', 'descarga')
+        
+        if not file_url:
+            return {"success": False, "error": "URL no proporcionada"}, 400
+        
+        # Descargar el archivo desde Cloudinary
+        response = requests.get(file_url, timeout=30)
+        response.raise_for_status()
+        
+        # Crear BytesIO del contenido
+        file_data = BytesIO(response.content)
+        
+        # Enviar el archivo con el nombre correcto
+        return send_file(
+            file_data,
+            as_attachment=True,
+            download_name=filename,
+            mimetype=response.headers.get('content-type', 'application/octet-stream')
+        )
+    except requests.exceptions.RequestException as e:
+        print(f"Error descargando desde Cloudinary: {e}")
+        return {"success": False, "error": "Error descargando archivo"}, 500
+    except Exception as e:
+        print(f"Error en /download: {e}")
         return {"success": False, "error": str(e)}, 500
 
 if __name__ == "__main__":
