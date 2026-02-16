@@ -17,7 +17,7 @@ def init_firebase():
             print(" Descárgalo desde Firebase Console:")
             print("   1. Ve a https://console.firebase.google.com/")
             print("   2. Selecciona tu proyecto 'devChat'")
-            print("   3. ⚙️  Configuración → Cuentas de servicio")
+            print("   3. Configuración → Cuentas de servicio")
             print("   4. Generar nueva clave privada")
             print("   5. Guárdalo como 'serviceAccountKey.json' en /server/")
             return None, None

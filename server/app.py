@@ -1,11 +1,29 @@
+# Los EMIT envían mensajes al cliente (GUI) mientras que print() notifica de los cambios en la consola
+
+"""
+- Flask crea el servidor web
+- render_template permite mostrar archivos HTML
+- request maneja las solicitudes del cliente
+- SocketIO maneja la comunicación en tiempo real entre cliente y servidor
+- join_room y leave_room permiten gestionar salas de chat
+- emit envía mensajes a los clientes conectados
+- datetime se usa para marcar la hora de los mensajes
+- FirebaseHandler es una clase personalizada para interactuar con Firebase (Firestore y Storage)
+"""
+
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, join_room, leave_room, emit
 from datetime import datetime
+from firebase_config import db, bucket
+from firebase_handler import FirebaseHandler
 
 # Inicializa la aplicación Flask
 app = Flask(__name__, template_folder='../templates')
-app.config['SECRET_KEY'] = 'tu-clave-secreta-devChat-2026'
-socketio = SocketIO(app, cors_allowed_origins="*")
+app.config['SECRET_KEY'] = 'tu-clave-secreta-devChat-2026' # Configura una clave secretas oara sesiones seguras (se puede modificar más adelante)
+socketio = SocketIO(app, cors_allowed_origins="*") # Permite conexiones desde cualquier origen (útil para desarrollo, ajustar en producción)
+
+# Inicializa Firebase Handler
+firebase_handler = FirebaseHandler(db, bucket) if db and bucket else None 
 
 # Almacena usuarios y mensajes en memoria
 rooms = {}  # {nombre_sala: [usuarios]}
@@ -13,77 +31,98 @@ message_history = {}  # {nombre_sala: [mensajes]}
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html') # Renderiza la página de HTML para que el programa la pueda msotrar
 
+# Maneja la conexión de un nuevo cliente
 @socketio.on('connect')
 def handle_connect():
-    """Maneja la conexión de un nuevo cliente"""
     print(f" Usuario conectado: {request.sid}")
     emit('message', "Conectado al servidor")
 
+# Detecta cuando un usuario se ha unido a una sala
 @socketio.on('join_room')
 def handle_join_room(data):
-    """Maneja cuando un usuario se une a una sala"""
-    room = data['room']
-    username = data['username']
+    room = data['room'] # La sala a la que el usuario se va a unir
+    username = data['username'] # El usuario que se va a unir a la sala
     
-    print(f"{username} se unió a {room}")
+    print(f"{username} se unió a {room}") # Hace especificación de qué usuario y a cuál sala se ha unido 
     
-    # Agrega a la estructura local
-    if room not in rooms:
+    # Agrega a la estructura local 
+    if room not in rooms: # Si la sala no existe, se crea 
         rooms[room] = []
-        message_history[room] = []
-    if username not in rooms[room]:
+        message_history[room] = [] 
+    if username not in rooms[room]: # Si el usuario no está en la sala, se agrega 
         rooms[room].append(username)
     
-    # Une al usuario al socket room
-    join_room(room)
+    # Guarda en Firebase si está disponible
+    if firebase_handler:
+        firebase_handler.add_user_to_room(room, username)
     
-    # Notifica a otros usuarios
-    emit('message', f"{username} se ha unido a la sala", room=room)
-    emit('update_user_list', {'users': rooms[room]}, room=room)
+    join_room(room) # Une al usuario a la sala
+
+    # Notifica a otros usuarios 
+    emit('message', f"{username} se ha unido a la sala", room=room) # Notifica que el usuario se ha unido a la sala 
+    emit('update_user_list', {'users': rooms[room]}, room=room) # Actualiza la lista de usuarios en la sala para todos los clientes conectados a esa sala 
     
     # Carga mensajes previos (últimos 20)
-    for msg in message_history[room][-20:]:
-        emit('message', {
-            'username': msg['username'],
-            'type': msg['type'],
-            'content': msg['content'],
-            'timestamp': msg['timestamp']
-        })
+    if firebase_handler:
+        prev_messages = firebase_handler.get_messages(room, limit=20) # Obtiene los últimos 20 mensajes de la sala desde Firebase
+        for msg in prev_messages: 
+            emit('message', { # Muestra cada mensaje previo al usuario que se acaba de unir
+                'username': msg['username'],
+                'type': msg['type'],
+                'content': msg['content'],
+                'timestamp': msg['timestamp']
+            })
+    else: # Si no hay Firebase, muestra el historial local (últimos 20 mensajes)
+        for msg in message_history[room][-20:]: # Muestra los últimos 20 mensajes del historial local
+            emit('message', {
+                'username': msg['username'],
+                'type': msg['type'],
+                'content': msg['content'],
+                'timestamp': msg['timestamp']
+            })
 
+# Maneja cuando un usuario sale de la sala
 @socketio.on('leave_room')
 def handle_leave_room(data):
-    """Maneja cuando un usuario sale de una sala"""
-    room = data['room']
-    username = data['username']
+    room = data['room'] # La sala de la que el usuario se va a salir
+    username = data['username'] # El usuario que se va a salir de la sala
     
-    print(f"{username} salió de {room}")
+    print(f"{username} salió de {room}") # Hace especificación de qué usuario y de cuál sala se ha salido
     
     # Remueve de estructura local
     if room in rooms and username in rooms[room]:
         rooms[room].remove(username)
     
+    # Remueve de Firebase
+    if firebase_handler:
+        firebase_handler.remove_user_from_room(room, username)
+    
     # Sale del socket room
     leave_room(room)
     
-    # Notifica
-    emit('message', f"{username} ha salido de la sala", room=room)
+    # Notifica a otros usuarios qué usuario se ha salido de la sala y actualiza la lista de usuarios
+    emit('message', f"{username} ha salido de la sala", room=room) 
     emit('update_user_list', {'users': rooms[room]}, room=room)
 
+# Maneja el envío de mensajes (texto, emoji y multimedia)
 @socketio.on('message')
 def handle_message(data):
-    """Maneja el envío de mensajes (texto, emoji, multimedia)"""
     room = data['room']
-    username = data['username']
+    username = data['username'] 
     msg_type = data['type']  # 'text', 'emoji', 'image', 'audio', 'video'
-    content = data['content']
+    content = data['content'] 
     
-    timestamp = datetime.now().isoformat()
+    timestamp = datetime.now().isoformat() 
     
     print(f" [{room}] {username} ({msg_type}): {content[:50] if isinstance(content, str) else '<multimedia>'}...")
     
-    # Guarda en historial local
+    # Guarda en Firestore si Firebase está disponible
+    if firebase_handler:
+        firebase_handler.save_message(room, username, msg_type, content, timestamp)
+    
+    # Guarda también en historial local
     if room not in message_history:
         message_history[room] = []
     
@@ -98,6 +137,7 @@ def handle_message(data):
     # Envía a todos en la sala
     emit('message', message_data, room=room)
 
+# Avisa si el usuario del otro lado de la pantalla se encuentra escribiendo o no
 @socketio.on('typing')
 def handle_typing(data):
     """Maneja el indicador 'está escribiendo...'"""
@@ -110,14 +150,17 @@ def handle_typing(data):
         'is_typing': is_typing
     }, room=room)
 
+# Maneja la desconexión de un usuario
 @socketio.on('disconnect')
-def handle_disconnect():
-    """Maneja la desconexión de un cliente"""
+def handle_disconnect(): # Manejar desconexión
     print(f" Usuario desconectado: {request.sid}")
 
 if __name__ == "__main__":
-    print("🚀 Iniciando devChat...")
-    print("📍 Servidor: http://0.0.0.0:5001")
-    print("⚡ Modo local (sin persistencia)")
+    print("Iniciando devChat...")
+    print("Servidor: http://0.0.0.0:5001") # Servidor global a donde tira el servicio
+    if firebase_handler:
+        print("Con Firebase (Firestore + Storage)") # Avisa si Firebase está disponible
+    else:
+        print("⚡ Modo local (sin persistencia)") # Si no está disponible se procede con el localstorage
     
-    socketio.run(app, host="0.0.0.0", port=5001, debug=True)
+    socketio.run(app, host="0.0.0.0", port=5001, debug=True) 
