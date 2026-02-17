@@ -18,6 +18,19 @@
         let captureMode = null;  // Modo actual de captura
         let discardRecording = false;  // Indica si se descarta una grabación
 
+        // ============ VIDEOLLAMADA (WebRTC) ============
+        let localStream = null;  // Stream local de la camara y microfono
+        let isInCall = false;  // Estado de llamada activa
+        const peerConnections = {};  // RTCPeerConnection por usuario remoto
+        const peerLabels = {};  // Etiquetas de nombre por usuario remoto
+
+        const rtcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+
         // ============ DARK MODE (Light / Dark / Auto) ============
         const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)');
         
@@ -82,7 +95,7 @@
         // Lista de emojis disponibles en el selector
         const emojis = ['😊', '😂', '❤️', '👍', '🔥', '🎉', '😍', '🚀', '💯', '🤔', '😎', '🥳', '😢', '😭', '😡', '💪', '🙏', '✨'];
 
-        // Función helper para formatear tamaño de archivo
+        // Funcion auxiliar para formatear tamaño de archivo
         function formatFileSize(bytes) {
             if (!bytes || bytes === 0) return 'Desconocido';
             const k = 1024;
@@ -98,7 +111,7 @@
             return codeExts.includes(ext);
         }
 
-        // Helper de alerta personalizada (reemplaza alert nativo).
+        // Funcion auxiliar de alerta personalizada (reemplaza alert nativo).
         function showToast(type, message, options = {}) {
             const container = document.getElementById('toastContainer');
             if (!container) {
@@ -149,7 +162,7 @@
             }, 180);
         }
 
-        // Verifica si hay usuario y sala antes de permitir acciones de media.
+        // Verifica si hay usuario y sala antes de permitir acciones multimedia.
         function ensureReadyForMedia() {
             if (!username || !currentRoom) {
                 showToast('warning', "Debes establecer un usuario y unirte a una sala primero.");
@@ -158,7 +171,7 @@
             return true;
         }
 
-        // Actualiza el estado visual de grabacion en el preview.
+        // Actualiza el estado visual de grabacion en la vista previa.
         function setRecordingStatus(text, active) {
             const statusEl = $('#recordingStatus');
             statusEl.text(text || '');
@@ -166,7 +179,7 @@
             statusEl.toggleClass('active', !!active);
         }
 
-        // Muestra u oculta el panel de preview.
+        // Muestra u oculta el panel de vista previa.
         function showMediaPreview(show) {
             $('#mediaPreview').toggle(!!show);
         }
@@ -250,6 +263,141 @@
             });
         }
 
+        // Muestra u oculta el overlay de llamada
+        function setCallOverlay(show) {
+            const overlay = document.getElementById('callOverlay');
+            if (!overlay) return;
+            overlay.classList.toggle('is-active', !!show);
+            overlay.setAttribute('aria-hidden', show ? 'false' : 'true');
+        }
+
+        // Agrega un video remoto al grid de la llamada
+        function addRemoteVideo(peerId, stream) {
+            const grid = document.getElementById('callGrid');
+            if (!grid) return;
+
+            let tile = grid.querySelector(`[data-peer="${peerId}"]`);
+            if (!tile) {
+                tile = document.createElement('div');
+                tile.className = 'call-tile';
+                tile.dataset.peer = peerId;
+
+                const video = document.createElement('video');
+                video.autoplay = true;
+                video.playsInline = true;
+
+                const label = document.createElement('span');
+                label.className = 'call-label';
+                label.textContent = peerLabels[peerId] || 'Usuario';
+
+                tile.appendChild(video);
+                tile.appendChild(label);
+                grid.appendChild(tile);
+            }
+
+            const videoEl = tile.querySelector('video');
+            if (videoEl && videoEl.srcObject !== stream) {
+                videoEl.srcObject = stream;
+            }
+        }
+
+        // Quita un video remoto del grid
+        function removeRemoteVideo(peerId) {
+            const grid = document.getElementById('callGrid');
+            if (!grid) return;
+            const tile = grid.querySelector(`[data-peer="${peerId}"]`);
+            if (tile) tile.remove();
+            delete peerLabels[peerId];
+        }
+
+        // Crea y configura una conexion WebRTC con un usuario remoto
+        function createPeerConnection(peerId, usernameLabel) {
+            if (peerConnections[peerId]) return peerConnections[peerId];
+
+            const pc = new RTCPeerConnection(rtcConfig);
+            peerConnections[peerId] = pc;
+            if (usernameLabel) peerLabels[peerId] = usernameLabel;
+
+            if (localStream) {
+                localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+            }
+
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('webrtc_ice', {
+                        target: peerId,
+                        candidate: event.candidate
+                    });
+                }
+            };
+
+            pc.ontrack = (event) => {
+                const [remoteStream] = event.streams;
+                if (remoteStream) addRemoteVideo(peerId, remoteStream);
+            };
+
+            pc.onconnectionstatechange = () => {
+                if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) {
+                    removeRemoteVideo(peerId);
+                    pc.close();
+                    delete peerConnections[peerId];
+                }
+            };
+
+            return pc;
+        }
+
+        // Inicia la videollamada y notifica a la sala
+        async function startCall() {
+            if (!username || !currentRoom) {
+                showToast('warning', 'Debes establecer un usuario y unirte a una sala primero.');
+                return;
+            }
+            if (isInCall) return;
+
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                const localVideo = document.getElementById('localVideo');
+                if (localVideo) localVideo.srcObject = localStream;
+
+                isInCall = true;
+                setCallOverlay(true);
+                document.getElementById('videoCallBtn')?.classList.add('is-active');
+
+                socket.emit('webrtc_join_call', { room: currentRoom, username });
+            } catch (err) {
+                console.error(err);
+                showToast('error', 'No se pudo acceder a la camara o microfono.');
+            }
+        }
+
+        // Finaliza la videollamada y limpia recursos
+        function endCall() {
+            if (!isInCall) return;
+
+            socket.emit('webrtc_leave_call', { room: currentRoom });
+
+            Object.values(peerConnections).forEach((pc) => pc.close());
+            Object.keys(peerConnections).forEach((key) => delete peerConnections[key]);
+
+            const grid = document.getElementById('callGrid');
+            if (grid) {
+                grid.querySelectorAll('[data-peer]:not([data-peer="local"])').forEach((el) => el.remove());
+            }
+
+            if (localStream) {
+                localStream.getTracks().forEach((track) => track.stop());
+                localStream = null;
+            }
+
+            const localVideo = document.getElementById('localVideo');
+            if (localVideo) localVideo.srcObject = null;
+
+            isInCall = false;
+            setCallOverlay(false);
+            document.getElementById('videoCallBtn')?.classList.remove('is-active');
+        }
+
         // Generar botones de emojis dinámicamente
         emojis.forEach(emoji => {
             $('#emojiList').append(`<button class="btn btn-light emoji-item" style="font-size: 1.5em;">${emoji}</button>`);
@@ -328,6 +476,11 @@
             if (!currentRoom) {
                 showToast('warning', "No estás en ninguna sala.");
                 return;
+            }
+
+            // Si hay llamada activa, se finaliza antes de salir
+            if (isInCall) {
+                endCall();
             }
 
             // Emite el evento al servidor
@@ -418,7 +571,7 @@
             }
         });
 
-        // Toma la foto desde el video preview y la sube.
+        // Toma la foto desde el video de vista previa y la sube.
         $('#capturePhotoBtn').on('click', function() {
             const videoEl = $('#cameraPreview')[0];
             const canvas = $('#photoCanvas')[0];
@@ -547,7 +700,7 @@
             }
         });
 
-        // Cierra el preview y detiene streams.
+        // Cierra la vista previa y detiene los streams.
         $('#stopPreviewBtn').on('click', function() {
             if (mediaRecorder && mediaRecorder.state === 'recording') {
                 discardRecording = true;
@@ -556,6 +709,40 @@
             }
             stopAllStreams();
             resetCaptureUi();
+        });
+
+        // Boton principal de videollamada
+        $('#videoCallBtn').on('click', function() {
+            if (isInCall) {
+                endCall();
+            } else {
+                startCall();
+            }
+        });
+
+        // Controla el microfono en llamada
+        $('#toggleMic').on('click', function() {
+            if (!localStream) return;
+            localStream.getAudioTracks().forEach((track) => {
+                track.enabled = !track.enabled;
+                $(this).toggleClass('is-muted', !track.enabled);
+                $(this).find('i').toggleClass('bi-mic-mute-fill', !track.enabled).toggleClass('bi-mic-fill', track.enabled);
+            });
+        });
+
+        // Controla la camara en llamada
+        $('#toggleCam').on('click', function() {
+            if (!localStream) return;
+            localStream.getVideoTracks().forEach((track) => {
+                track.enabled = !track.enabled;
+                $(this).toggleClass('is-muted', !track.enabled);
+                $(this).find('i').toggleClass('bi-camera-video-off-fill', !track.enabled).toggleClass('bi-camera-video-fill', track.enabled);
+            });
+        });
+
+        // Boton para finalizar llamada desde el overlay
+        $('#endCall').on('click', function() {
+            endCall();
         });
         
         // Insertar emoji al hacer clic
@@ -721,7 +908,7 @@
             
             const fileExt = $(this).find('.message-bubble strong, span').text().toLowerCase();
             
-            // Si puede contener preview, expandir en modal
+            // Si puede contener vista previa, expandir en modal
             if (fileExt.includes('.pdf') || fileExt.match(/\.(doc|docx|xls|xlsx|ppt|pptx|js|ts|py|java|cpp|c|cs|rb|go|php|html|css|json|xml)$/i)) {
                 const bubble = $(this).find('.message-bubble');
                 const title = $(this).find('strong, span').first().text();
@@ -828,6 +1015,68 @@
             users.forEach(function(user) {
                 $('#usersList').append(`<li>${user}</li>`);
             });
+        });
+
+        // Usuarios ya conectados en la llamada
+        socket.on('webrtc_existing_users', async function(data) {
+            if (!isInCall) return;
+            (data.peers || []).forEach((peer) => {
+                createPeerConnection(peer.id, peer.username);
+            });
+        });
+
+        // Nuevo usuario se une a la llamada
+        socket.on('webrtc_user_joined', async function(data) {
+            if (!isInCall || !localStream) return;
+            const pc = createPeerConnection(data.id, data.username);
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socket.emit('webrtc_offer', {
+                target: data.id,
+                sdp: pc.localDescription,
+                username: username
+            });
+        });
+
+        // Recibe oferta WebRTC
+        socket.on('webrtc_offer', async function(data) {
+            if (!isInCall) return;
+            const pc = createPeerConnection(data.from, data.username);
+            await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            socket.emit('webrtc_answer', {
+                target: data.from,
+                sdp: pc.localDescription
+            });
+        });
+
+        // Recibe respuesta WebRTC
+        socket.on('webrtc_answer', async function(data) {
+            const pc = peerConnections[data.from];
+            if (!pc) return;
+            await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        });
+
+        // Recibe ICE candidate
+        socket.on('webrtc_ice', async function(data) {
+            const pc = peerConnections[data.from];
+            if (!pc) return;
+            try {
+                await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+            } catch (err) {
+                console.error('ICE error:', err);
+            }
+        });
+
+        // Usuario abandona la llamada
+        socket.on('webrtc_user_left', function(data) {
+            const pc = peerConnections[data.id];
+            if (pc) {
+                pc.close();
+                delete peerConnections[data.id];
+            }
+            removeRemoteVideo(data.id);
         });
 
         // Evento para mostrar el indicador "está escribiendo..."

@@ -24,10 +24,17 @@
             <div class="header-content">
                 <!-- Nombre de la app e icono -->
                 <h1 class="text-center app-title"><i class="bi bi-chat-dots-fill"></i> devChat</h1>
-                <!-- Selector de tema: claro -> oscuro -> auto -->
-                <button id="darkModeToggle" class="dark-mode-toggle" title="Cambiar tema">
-                    <i class="bi bi-arrow-clockwise"></i>
-                </button>
+                <!-- Acciones del encabezado (videollamada y tema) -->
+                <div class="header-actions">
+                    <!-- Boton para iniciar/terminar videollamada -->
+                    <button id="videoCallBtn" class="call-toggle" title="Videollamada">
+                        <i class="bi bi-camera-video-fill"></i>
+                    </button>
+                    <!-- Selector de tema: claro -> oscuro -> auto -->
+                    <button id="darkModeToggle" class="dark-mode-toggle" title="Cambiar tema">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                </div>
             </div>
             <!-- Subtitulo debajo del titulo -->
             <p class="text-center app-subtitle">Messages</p>
@@ -130,6 +137,29 @@
     </div>
     <!-- Toasts personalizados para reemplazar alertas nativas -->
     <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- Overlay de videollamada a pantalla completa -->
+    <div id="callOverlay" class="call-overlay" aria-hidden="true">
+        <div class="call-grid" id="callGrid">
+            <!-- Video local -->
+            <div class="call-tile" data-peer="local">
+                <video id="localVideo" autoplay muted playsinline></video>
+                <span class="call-label">Tu</span>
+            </div>
+            <!-- Videos remotos se agregan dinamicamente -->
+        </div>
+        <div class="call-controls">
+            <button id="toggleMic" class="btn btn-outline-secondary" type="button" title="Silenciar">
+                <i class="bi bi-mic-fill"></i>
+            </button>
+            <button id="toggleCam" class="btn btn-outline-secondary" type="button" title="Apagar camara">
+                <i class="bi bi-camera-video-fill"></i>
+            </button>
+            <button id="endCall" class="btn btn-danger" type="button" title="Salir de la llamada">
+                <i class="bi bi-telephone-x-fill"></i>
+            </button>
+        </div>
+    </div>
 
     <!-- Modal para expandir archivos -->
     <div class="modal fade" id="fileModal" tabindex="-1" aria-hidden="true">

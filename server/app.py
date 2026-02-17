@@ -33,6 +33,8 @@ firebase_handler = FirebaseHandler(db, bucket) if db and bucket else None
 # Almacena usuarios y mensajes en memoria
 rooms = {}  # {nombre_sala: [usuarios]}
 message_history = {}  # {nombre_sala: [mensajes]}
+# Almacena participantes en videollamada por sala
+call_members = {}  # {nombre_sala: {sid: username}}
 
 @app.route('/')
 def index():
@@ -106,6 +108,11 @@ def handle_leave_room(data):
     
     # Sale del socket room
     leave_room(room)
+
+    # Si estaba en videollamada, tambien se elimina
+    if room in call_members and request.sid in call_members[room]:
+        call_members[room].pop(request.sid, None)
+        emit('webrtc_user_left', {'id': request.sid}, room=room)
     
     # Notifica a otros usuarios qué usuario se ha salido de la sala y actualiza la lista de usuarios
     emit('message', f"{username} ha salido de la sala", room=room) 
@@ -163,6 +170,75 @@ def handle_typing(data):
 @socketio.on('disconnect')
 def handle_disconnect(): # Manejar desconexión
     print(f" Usuario desconectado: {request.sid}")
+    # Limpia al usuario de cualquier videollamada activa
+    for room_name, members in list(call_members.items()):
+        if request.sid in members:
+            members.pop(request.sid, None)
+            emit('webrtc_user_left', {'id': request.sid}, room=room_name)
+        if not members:
+            call_members.pop(room_name, None)
+
+# ============ SENALIZACION WEBRTC ============
+# Unirse a la videollamada de una sala
+@socketio.on('webrtc_join_call')
+def handle_webrtc_join_call(data):
+    room = data['room']
+    username = data['username']
+    sid = request.sid
+
+    if room not in call_members:
+        call_members[room] = {}
+
+    call_members[room][sid] = username
+
+    # Envia a quien entra la lista de usuarios ya conectados en la llamada
+    existing = [
+        {'id': peer_sid, 'username': peer_name}
+        for peer_sid, peer_name in call_members[room].items()
+        if peer_sid != sid
+    ]
+    emit('webrtc_existing_users', {'peers': existing})
+
+    # Notifica al resto que un nuevo usuario entro a la llamada
+    emit('webrtc_user_joined', {'id': sid, 'username': username}, room=room, include_self=False)
+
+# Salir de la videollamada
+@socketio.on('webrtc_leave_call')
+def handle_webrtc_leave_call(data):
+    room = data['room']
+    sid = request.sid
+
+    if room in call_members and sid in call_members[room]:
+        call_members[room].pop(sid, None)
+        emit('webrtc_user_left', {'id': sid}, room=room)
+
+# Reenviar offer WebRTC al destinatario
+@socketio.on('webrtc_offer')
+def handle_webrtc_offer(data):
+    target = data['target']
+    emit('webrtc_offer', {
+        'from': request.sid,
+        'sdp': data['sdp'],
+        'username': data.get('username')
+    }, to=target)
+
+# Reenviar answer WebRTC al destinatario
+@socketio.on('webrtc_answer')
+def handle_webrtc_answer(data):
+    target = data['target']
+    emit('webrtc_answer', {
+        'from': request.sid,
+        'sdp': data['sdp']
+    }, to=target)
+
+# Reenviar ICE candidate al destinatario
+@socketio.on('webrtc_ice')
+def handle_webrtc_ice(data):
+    target = data['target']
+    emit('webrtc_ice', {
+        'from': request.sid,
+        'candidate': data['candidate']
+    }, to=target)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
