@@ -1,4 +1,4 @@
-// Se crea una conexión con el servidor
+        // Se crea una conexión con el servidor
         const socket = io({
             reconnection: true,  // Habilita la reconexión automática
             reconnectionAttempts: 5,  // Número de intentos de reconexión
@@ -49,7 +49,7 @@
             $('#darkModeToggle').html(`<i class="bi ${iconClass}"></i>`).attr('title', title);
         }
 
-        // Aplicar tema inicial
+        // Aplicar tema inicial desde localStorage o modo auto
         const savedTheme = localStorage.getItem('theme') || 'auto';
         applyTheme(savedTheme);
 
@@ -98,14 +98,67 @@
             return codeExts.includes(ext);
         }
 
+        // Helper de alerta personalizada (reemplaza alert nativo).
+        function showToast(type, message, options = {}) {
+            const container = document.getElementById('toastContainer');
+            if (!container) {
+                alert(message);
+                return;
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `toast-card toast--${type}`;
+            toast.setAttribute('role', 'alert');
+
+            const title = document.createElement('div');
+            title.className = 'toast-title';
+            title.textContent = options.title || 'Aviso';
+
+            const text = document.createElement('div');
+            text.className = 'toast-message';
+            text.textContent = message;
+
+            const action = document.createElement('button');
+            action.type = 'button';
+            action.className = 'toast-action btn btn-primary';
+            action.textContent = options.actionLabel || 'Aceptar';
+            action.addEventListener('click', () => dismissToast(toast));
+
+            toast.appendChild(title);
+            toast.appendChild(text);
+            toast.appendChild(action);
+            container.appendChild(toast);
+
+            const autoClose = options.autoClose ?? (type === 'success');
+            const timeout = options.timeout ?? 2500;
+            if (autoClose && timeout > 0) {
+                setTimeout(() => dismissToast(toast), timeout);
+            }
+        }
+
+        // Quita la alerta con una animacion de salida corta.
+        function dismissToast(toast) {
+            if (!toast || toast.classList.contains('is-hiding')) return;
+            toast.classList.add('is-hiding');
+            setTimeout(() => {
+                const container = toast.parentElement;
+                toast.remove();
+                if (container && container.children.length === 0) {
+                    container.classList.remove('is-active');
+                }
+            }, 180);
+        }
+
+        // Verifica si hay usuario y sala antes de permitir acciones de media.
         function ensureReadyForMedia() {
             if (!username || !currentRoom) {
-                alert("Debes establecer un usuario y unirte a una sala primero.");
+                showToast('warning', "Debes establecer un usuario y unirte a una sala primero.");
                 return false;
             }
             return true;
         }
 
+        // Actualiza el estado visual de grabacion en el preview.
         function setRecordingStatus(text, active) {
             const statusEl = $('#recordingStatus');
             statusEl.text(text || '');
@@ -113,16 +166,19 @@
             statusEl.toggleClass('active', !!active);
         }
 
+        // Muestra u oculta el panel de preview.
         function showMediaPreview(show) {
             $('#mediaPreview').toggle(!!show);
         }
 
+        // Detiene todas las tracks de un stream.
         function stopStream(stream) {
             if (stream) {
                 stream.getTracks().forEach((track) => track.stop());
             }
         }
 
+        // Limpia el UI de captura y vuelve a valores por defecto.
         function resetCaptureUi() {
             captureMode = null;
             $('#cameraPreview').prop('srcObject', null).hide();
@@ -133,6 +189,7 @@
             showMediaPreview(false);
         }
 
+        // Detiene todos los streams activos.
         function stopAllStreams() {
             stopStream(cameraStream);
             stopStream(videoStream);
@@ -142,6 +199,7 @@
             audioStream = null;
         }
 
+        // Valida y sube archivos al backend, luego emite el mensaje.
         function uploadMediaFile(file, mediaType, msgType) {
             if (!ensureReadyForMedia()) return;
 
@@ -155,7 +213,7 @@
             }
 
             if (file.size > maxSize) {
-                alert(`El archivo es demasiado grande. Maximo ${Math.round(maxSize / (1024 * 1024))}MB.`);
+                showToast('warning', `El archivo es demasiado grande. Maximo ${Math.round(maxSize / (1024 * 1024))}MB.`);
                 return;
             }
 
@@ -183,12 +241,12 @@
                         room: currentRoom
                     });
                 } else {
-                    alert("Error al subir archivo: " + data.error);
+                    showToast('error', "Error al subir archivo: " + data.error);
                 }
             })
             .catch(error => {
                 console.error("Error:", error);
-                alert("Error al subir archivo");
+                showToast('error', "Error al subir archivo");
             });
         }
 
@@ -221,9 +279,9 @@
                 username = inputUsername;
                 $('#username').prop('disabled', true);
                 $('#setUsername').prop('disabled', true);
-                alert(`Nombre de usuario establecido: ${username}`);
+                showToast('success', `Nombre de usuario establecido: ${username}`);
             } else {
-                alert("El nombre de usuario no puede estar vacío.");
+                showToast('warning', "El nombre de usuario no puede estar vacío.");
             }
         });
 
@@ -240,15 +298,15 @@
             
             // Validaciones
             if (!username) {
-                alert("Debes establecer un nombre de usuario antes de unirte a una sala.");
+                showToast('warning', "Debes establecer un nombre de usuario antes de unirte a una sala.");
                 return;
             }
             if (roomName.length === 0) {
-                alert("El nombre de la sala no puede estar vacío.");
+                showToast('warning', "El nombre de la sala no puede estar vacío.");
                 return;
             }
             if (currentRoom) {
-                alert("Ya estás en una sala. Sal primero antes de unirte a otra.");
+                showToast('warning', "Ya estás en una sala. Sal primero antes de unirte a otra.");
                 return;
             }
 
@@ -268,7 +326,7 @@
         // Evento para salir de una sala
         $('#leaveRoom').on('click', function() {
             if (!currentRoom) {
-                alert("No estás en ninguna sala.");
+                showToast('warning', "No estás en ninguna sala.");
                 return;
             }
 
@@ -298,7 +356,7 @@
             const file = event.target.files[0];
 
             if (!username || !currentRoom) {
-                alert("Debes establecer un usuario y unirte a una sala primero.");
+                showToast('warning', "Debes establecer un usuario y unirte a una sala primero.");
                 return;
             }
 
@@ -333,10 +391,11 @@
             $('#clipInput').val('');
         });
 
+        // Inicia flujo para capturar foto desde la camara.
         $('#photoBtn').on('click', async function() {
             if (!ensureReadyForMedia()) return;
             if (mediaRecorder && mediaRecorder.state === 'recording') {
-                alert("Hay una grabación en curso.");
+                showToast('warning', "Hay una grabación en curso.");
                 return;
             }
 
@@ -353,12 +412,13 @@
                 showMediaPreview(true);
             } catch (err) {
                 console.error(err);
-                alert("No se pudo acceder a la cámara.");
+                showToast('error', "No se pudo acceder a la cámara.");
                 stopAllStreams();
                 resetCaptureUi();
             }
         });
 
+        // Toma la foto desde el video preview y la sube.
         $('#capturePhotoBtn').on('click', function() {
             const videoEl = $('#cameraPreview')[0];
             const canvas = $('#photoCanvas')[0];
@@ -381,6 +441,7 @@
             resetCaptureUi();
         });
 
+        // Inicia o detiene grabacion de audio.
         $('#audioRecordBtn').on('click', async function() {
             if (!ensureReadyForMedia()) return;
 
@@ -390,7 +451,7 @@
             }
 
             if (mediaRecorder && mediaRecorder.state === 'recording') {
-                alert("Hay una grabación en curso.");
+                showToast('warning', "Hay una grabación en curso.");
                 return;
             }
 
@@ -426,12 +487,13 @@
                 showMediaPreview(true);
             } catch (err) {
                 console.error(err);
-                alert("No se pudo acceder al micrófono.");
+                showToast('error', "No se pudo acceder al micrófono.");
                 stopAllStreams();
                 resetCaptureUi();
             }
         });
 
+        // Inicia o detiene grabacion de video.
         $('#videoRecordBtn').on('click', async function() {
             if (!ensureReadyForMedia()) return;
 
@@ -441,7 +503,7 @@
             }
 
             if (mediaRecorder && mediaRecorder.state === 'recording') {
-                alert("Hay una grabación en curso.");
+                showToast('warning', "Hay una grabación en curso.");
                 return;
             }
 
@@ -479,12 +541,13 @@
                 showMediaPreview(true);
             } catch (err) {
                 console.error(err);
-                alert("No se pudo acceder a cámara y micrófono.");
+                showToast('error', "No se pudo acceder a cámara y micrófono.");
                 stopAllStreams();
                 resetCaptureUi();
             }
         });
 
+        // Cierra el preview y detiene streams.
         $('#stopPreviewBtn').on('click', function() {
             if (mediaRecorder && mediaRecorder.state === 'recording') {
                 discardRecording = true;
@@ -521,6 +584,7 @@
                 const isOwn = msg.username === username;
                 const ownAttr = isOwn ? 'true' : 'false';
                 
+                // Render segun el tipo de mensaje recibido.
                 if (msg.type === "emoji") {
                     $('#messages').append(`
                         <li class="list-group-item" data-own="${ownAttr}">
@@ -713,19 +777,19 @@
             
             // Validaciones
             if (!username) {
-                alert("Debes establecer un nombre de usuario antes de enviar mensajes.");
+                showToast('warning', "Debes establecer un nombre de usuario antes de enviar mensajes.");
                 return;
             }
             if (!currentRoom) {
-                alert("Debes unirte a una sala antes de enviar mensajes.");
+                showToast('warning', "Debes unirte a una sala antes de enviar mensajes.");
                 return;
             }
             if (message.length === 0) {
-                alert("El mensaje no puede estar vacío.");
+                showToast('warning', "El mensaje no puede estar vacío.");
                 return;
             }
             if (message.length > 1000) {
-                alert("El mensaje no puede exceder los 1000 caracteres.");
+                showToast('warning', "El mensaje no puede exceder los 1000 caracteres.");
                 return;
             }
 
@@ -780,14 +844,16 @@
 
         // Manejo de errores de conexión
         socket.on("connect_error", () => {
-            alert("No se pudo conectar al servidor. Verifica tu conexión.");
+            showToast('error', "No se pudo conectar al servidor. Verifica tu conexión.");
         });
 
+        // Aviso visual cuando se pierde la conexion.
         socket.on("disconnect", () => {
             $('#messages').append(`<li class="list-group-item text-muted text-center"><small>⚠ Desconectado. Intentando reconectar...</small></li>`);
             $('#messages').scrollTop($('#messages')[0].scrollHeight);
         });
 
+        // Aviso visual cuando se reconecta.
         socket.on("connect", () => {
             $('#messages').append(`<li class="list-group-item text-muted text-center"><small>✓ Conectado al servidor</small></li>`);
             $('#messages').scrollTop($('#messages')[0].scrollHeight);

@@ -18,14 +18,18 @@
     <link href="../static/css/style.css?v=2.0" rel="stylesheet">
 </head>
 <body>
+    <!-- Encabezado superior con marca y selector de tema -->
     <div class="app-header">
         <div class="container">
             <div class="header-content">
+                <!-- Nombre de la app e icono -->
                 <h1 class="text-center app-title"><i class="bi bi-chat-dots-fill"></i> devChat</h1>
+                <!-- Selector de tema: claro -> oscuro -> auto -->
                 <button id="darkModeToggle" class="dark-mode-toggle" title="Cambiar tema">
                     <i class="bi bi-arrow-clockwise"></i>
                 </button>
             </div>
+            <!-- Subtitulo debajo del titulo -->
             <p class="text-center app-subtitle">Messages</p>
         </div>
     </div>
@@ -35,13 +39,17 @@
         <div class="control-panel">
             <!-- Grupo de entrada para el nombre de usuario -->
             <div class="input-group mb-3">
+                <!-- Campo para nombre de usuario -->
                 <input type="text" id="username" class="form-control" placeholder="Nombre">
+                <!-- Confirmar nombre -->
                 <button id="setUsername" class="btn btn-success">OK</button>
             </div>
 
             <!-- Grupo de entrada para unirse a una sala -->
             <div class="input-group">
+                <!-- Selector de sala -->
                 <input type="text" id="roomName" class="form-control" placeholder="Sala">
+                <!-- Acciones de entrar/salir -->
                 <button id="joinRoom" class="btn btn-primary">Entrar</button>
                 <button id="leaveRoom" class="btn btn-danger">Salir</button>
             </div>
@@ -65,10 +73,12 @@
             </div>
         </div>
 
-        <!-- Campo para mostrar mensajes -->
+        <!-- Area de chat (mensajes + controles) -->
         <div class="chat-container">
             <div class="card-body">
+                <!-- Lista de mensajes renderizada por JS -->
                 <ul id="messages" class="list-group mb-3"></ul>
+                <!-- Fila de controles de entrada -->
                 <div class="message-controls">
                     <div class="input-group">
                     <!-- Botón para seleccionar emojis -->
@@ -85,12 +95,14 @@
                 </div>
                 </div>
 
+                <!-- Botones de captura (foto/audio/video) -->
                 <div class="capture-controls">
                     <button id="photoBtn" class="btn btn-outline-secondary" type="button" title="Tomar foto"><i class="bi bi-camera-fill"></i></button>
                     <button id="audioRecordBtn" class="btn btn-outline-secondary" type="button" title="Grabar audio"><i class="bi bi-mic-fill"></i></button>
                     <button id="videoRecordBtn" class="btn btn-outline-secondary" type="button" title="Grabar video"><i class="bi bi-camera-video-fill"></i></button>
                 </div>
 
+                <!-- Panel de vista previa para captura -->
                 <div id="mediaPreview" class="media-preview" style="display: none;">
                     <video id="cameraPreview" autoplay muted playsinline></video>
                     <canvas id="photoCanvas" style="display: none;"></canvas>
@@ -113,8 +125,11 @@
                     </div>
                 </div>
             </div>
+
         </div>
     </div>
+    <!-- Toasts personalizados para reemplazar alertas nativas -->
+    <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
     <!-- Modal para expandir archivos -->
     <div class="modal fade" id="fileModal" tabindex="-1" aria-hidden="true">
@@ -134,6 +149,7 @@
             </div>
         </div>
     </div>
+
 
     <!-- Se importa una librería SocketIO para JS-->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.js"></script>
