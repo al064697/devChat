@@ -1,4 +1,4 @@
-# devChat - Instrucciones super simples
+# devChat - Instrucciones simples
 
 Si sigues estos pasos en orden, la app corre sin problema.
 
