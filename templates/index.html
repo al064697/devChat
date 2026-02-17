@@ -10,32 +10,39 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <!-- Highlight.js para código -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
     <!-- Custom CSS -->
-    <link href="../static/css/style.css" rel="stylesheet">
+    <link href="../static/css/style.css?v=2.0" rel="stylesheet">
 </head>
 <body>
     <div class="app-header">
         <div class="container">
-            <h1 class="text-center app-title">⚡ devChat</h1>
-            <p class="text-center app-subtitle">Real-time communication for developers</p>
+            <div class="header-content">
+                <h1 class="text-center app-title"><i class="bi bi-chat-dots-fill"></i> devChat</h1>
+                <button id="darkModeToggle" class="dark-mode-toggle" title="Cambiar tema">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+            </div>
+            <p class="text-center app-subtitle">Messages</p>
         </div>
     </div>
 
-    <div class="container mt-4">
+    <div class="container">
         <!-- Panel de control de usuario y sala -->
         <div class="control-panel">
             <!-- Grupo de entrada para el nombre de usuario -->
             <div class="input-group mb-3">
-                <input type="text" id="username" class="form-control" placeholder="Tu nombre de usuario">
-                <button id="setUsername" class="btn btn-success">Establecer</button>
+                <input type="text" id="username" class="form-control" placeholder="Nombre">
+                <button id="setUsername" class="btn btn-success">OK</button>
             </div>
 
             <!-- Grupo de entrada para unirse a una sala -->
             <div class="input-group">
-                <input type="text" id="roomName" class="form-control" placeholder="Nombre de la sala">
-                <button id="joinRoom" class="btn btn-primary">Unirse</button>
+                <input type="text" id="roomName" class="form-control" placeholder="Sala">
+                <button id="joinRoom" class="btn btn-primary">Entrar</button>
                 <button id="leaveRoom" class="btn btn-danger">Salir</button>
             </div>
         </div>
@@ -65,17 +72,33 @@
                 <div class="message-controls">
                     <div class="input-group">
                     <!-- Botón para seleccionar emojis -->
-                    <button id="emojiBtn" class="btn btn-outline-secondary" type="button">👍</button>
+                    <button id="emojiBtn" class="btn btn-outline-secondary" type="button"><i class="bi bi-emoji-smile"></i></button>
                     
                     <!-- Botón único para adjuntar (foto, video, audio, archivos) -->
-                    <button id="clipBtn" class="btn btn-outline-secondary" type="button">📎</button>
+                    <button id="clipBtn" class="btn btn-outline-secondary" type="button"><i class="bi bi-paperclip"></i></button>
                     
                     <!-- Input de texto para escribir mensajes -->
-                    <input type="text" id="myMessage" class="form-control" placeholder="Escribe tu mensaje...">
+                    <input type="text" id="myMessage" class="form-control" placeholder="iMessage">
                     
                     <!-- Botón para enviar mensaje -->
-                    <button id="send" class="btn btn-primary">Enviar</button>
+                    <button id="send" class="btn btn-primary"><i class="bi bi-send-fill"></i></button>
                 </div>
+                </div>
+
+                <div class="capture-controls">
+                    <button id="photoBtn" class="btn btn-outline-secondary" type="button" title="Tomar foto"><i class="bi bi-camera-fill"></i></button>
+                    <button id="audioRecordBtn" class="btn btn-outline-secondary" type="button" title="Grabar audio"><i class="bi bi-mic-fill"></i></button>
+                    <button id="videoRecordBtn" class="btn btn-outline-secondary" type="button" title="Grabar video"><i class="bi bi-camera-video-fill"></i></button>
+                </div>
+
+                <div id="mediaPreview" class="media-preview" style="display: none;">
+                    <video id="cameraPreview" autoplay muted playsinline></video>
+                    <canvas id="photoCanvas" style="display: none;"></canvas>
+                    <div id="recordingStatus" class="recording-status"></div>
+                    <div class="preview-actions">
+                        <button id="capturePhotoBtn" class="btn btn-primary" type="button">Capturar foto</button>
+                        <button id="stopPreviewBtn" class="btn btn-secondary" type="button">Cerrar</button>
+                    </div>
                 </div>
                 
                 <!-- Input oculto para adjuntar (foto, video, audio, archivos) -->

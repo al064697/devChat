@@ -14,6 +14,70 @@
         let recordedChunks = [];  // Fragmentos de audio/video grabados
         let cameraStream = null;  // Stream de la cámara para fotos
         let videoStream = null;  // Stream de video para grabación
+        let audioStream = null;  // Stream de audio para grabación
+        let captureMode = null;  // Modo actual de captura
+        let discardRecording = false;  // Indica si se descarta una grabación
+
+        // ============ DARK MODE (Light / Dark / Auto) ============
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+        
+        // Función para aplicar el tema
+        function applyTheme(theme) {
+            if (theme === 'auto') {
+                // En modo auto, remover el atributo para que use prefers-color-scheme
+                document.documentElement.removeAttribute('data-theme');
+            } else {
+                document.documentElement.setAttribute('data-theme', theme);
+            }
+            updateThemeIcon(theme);
+        }
+
+        // Función para actualizar el ícono según el modo
+        function updateThemeIcon(theme) {
+            let iconClass, title;
+            if (theme === 'light') {
+                iconClass = 'bi-sun-fill';
+                title = 'Tema: Claro\nClic para cambiar a Oscuro';
+            } else if (theme === 'dark') {
+                iconClass = 'bi-moon-stars-fill';
+                title = 'Tema: Oscuro\nClic para cambiar a Automático';
+            } else { // auto
+                const systemTheme = systemPrefersDark.matches ? 'oscuro' : 'claro';
+                iconClass = 'bi-arrow-clockwise';
+                title = `Tema: Automático (${systemTheme})\nClic para cambiar a Claro`;
+            }
+            $('#darkModeToggle').html(`<i class="bi ${iconClass}"></i>`).attr('title', title);
+        }
+
+        // Aplicar tema inicial
+        const savedTheme = localStorage.getItem('theme') || 'auto';
+        applyTheme(savedTheme);
+
+        // Toggle entre los tres modos: light → dark → auto → light
+        $('#darkModeToggle').on('click', function() {
+            const currentTheme = localStorage.getItem('theme') || 'auto';
+            let newTheme;
+            
+            if (currentTheme === 'light') {
+                newTheme = 'dark';
+            } else if (currentTheme === 'dark') {
+                newTheme = 'auto';
+            } else { // auto
+                newTheme = 'light';
+            }
+            
+            localStorage.setItem('theme', newTheme);
+            applyTheme(newTheme);
+        });
+
+        // Escuchar cambios en la preferencia del sistema (solo afecta en modo auto)
+        systemPrefersDark.addEventListener('change', (e) => {
+            const currentTheme = localStorage.getItem('theme') || 'auto';
+            if (currentTheme === 'auto') {
+                // Actualizar el tooltip en modo auto cuando cambia el sistema
+                updateThemeIcon('auto');
+            }
+        });
 
         // Lista de emojis disponibles en el selector
         const emojis = ['😊', '😂', '❤️', '👍', '🔥', '🎉', '😍', '🚀', '💯', '🤔', '😎', '🥳', '😢', '😭', '😡', '💪', '🙏', '✨'];
@@ -32,6 +96,100 @@
             const codeExts = ['js', 'ts', 'py', 'java', 'cpp', 'c', 'cs', 'rb', 'go', 'php', 'html', 'css', 'json', 'xml', 'yml', 'sh', 'sql'];
             const ext = fileName.split('.').pop().toLowerCase();
             return codeExts.includes(ext);
+        }
+
+        function ensureReadyForMedia() {
+            if (!username || !currentRoom) {
+                alert("Debes establecer un usuario y unirte a una sala primero.");
+                return false;
+            }
+            return true;
+        }
+
+        function setRecordingStatus(text, active) {
+            const statusEl = $('#recordingStatus');
+            statusEl.text(text || '');
+            statusEl.toggle(!!text);
+            statusEl.toggleClass('active', !!active);
+        }
+
+        function showMediaPreview(show) {
+            $('#mediaPreview').toggle(!!show);
+        }
+
+        function stopStream(stream) {
+            if (stream) {
+                stream.getTracks().forEach((track) => track.stop());
+            }
+        }
+
+        function resetCaptureUi() {
+            captureMode = null;
+            $('#cameraPreview').prop('srcObject', null).hide();
+            $('#capturePhotoBtn').hide();
+            $('#audioRecordBtn').text('🎙️');
+            $('#videoRecordBtn').text('🎥');
+            setRecordingStatus('', false);
+            showMediaPreview(false);
+        }
+
+        function stopAllStreams() {
+            stopStream(cameraStream);
+            stopStream(videoStream);
+            stopStream(audioStream);
+            cameraStream = null;
+            videoStream = null;
+            audioStream = null;
+        }
+
+        function uploadMediaFile(file, mediaType, msgType) {
+            if (!ensureReadyForMedia()) return;
+
+            let maxSize = 50 * 1024 * 1024; // 50MB por defecto
+            if (msgType === 'image') {
+                maxSize = 25 * 1024 * 1024; // 25MB imagen
+            } else if (msgType === 'video') {
+                maxSize = 100 * 1024 * 1024; // 100MB video
+            } else if (msgType === 'audio') {
+                maxSize = 30 * 1024 * 1024; // 30MB audio
+            }
+
+            if (file.size > maxSize) {
+                alert(`El archivo es demasiado grande. Maximo ${Math.round(maxSize / (1024 * 1024))}MB.`);
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('media_type', mediaType);
+            formData.append('room', currentRoom);
+            formData.append('username', username);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const content = msgType === 'file' || msgType === 'audio'
+                        ? { url: data.url, filename: file.name, size: file.size }
+                        : data.url;
+
+                    socket.emit('message', {
+                        username,
+                        type: msgType,
+                        content: content,
+                        room: currentRoom
+                    });
+                } else {
+                    alert("Error al subir archivo: " + data.error);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("Error al subir archivo");
+            });
         }
 
         // Generar botones de emojis dinámicamente
@@ -153,20 +311,6 @@
             const isPDF = file.type === 'application/pdf' || fileNameLower.match(/\.pdf$/);
             const isOffice = fileNameLower.match(/\.(doc|docx|xls|xlsx|ppt|pptx)$/);
 
-            let maxSize = 50 * 1024 * 1024; // 50MB por defecto
-            if (isImage) {
-                maxSize = 25 * 1024 * 1024; // 25MB imagen
-            } else if (isVideo) {
-                maxSize = 100 * 1024 * 1024; // 100MB video
-            } else if (isAudio) {
-                maxSize = 30 * 1024 * 1024; // 30MB audio
-            }
-
-            if (file.size > maxSize) {
-                alert(`El archivo es demasiado grande. Maximo ${Math.round(maxSize / (1024 * 1024))}MB.`);
-                return;
-            }
-
             let mediaType = 'raw';
             let msgType = 'file';
 
@@ -184,39 +328,171 @@
                 msgType = 'file';
             }
 
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('media_type', mediaType);
-            formData.append('room', currentRoom);
-            formData.append('username', username);
-
-            fetch('/upload', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const content = msgType === 'file' || msgType === 'audio'
-                        ? { url: data.url, filename: file.name, size: file.size }
-                        : data.url;
-
-                    socket.emit('message', {
-                        username,
-                        type: msgType,
-                        content: content,
-                        room: currentRoom
-                    });
-                } else {
-                    alert("Error al subir archivo: " + data.error);
-                }
-            })
-            .catch(error => {
-                console.error("Error:", error);
-                alert("Error al subir archivo");
-            });
+            uploadMediaFile(file, mediaType, msgType);
 
             $('#clipInput').val('');
+        });
+
+        $('#photoBtn').on('click', async function() {
+            if (!ensureReadyForMedia()) return;
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                alert("Hay una grabación en curso.");
+                return;
+            }
+
+            try {
+                stopAllStreams();
+                captureMode = 'photo';
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                cameraStream = stream;
+                const videoEl = $('#cameraPreview')[0];
+                videoEl.srcObject = stream;
+                $('#cameraPreview').show();
+                $('#capturePhotoBtn').show();
+                setRecordingStatus('Vista previa de foto', false);
+                showMediaPreview(true);
+            } catch (err) {
+                console.error(err);
+                alert("No se pudo acceder a la cámara.");
+                stopAllStreams();
+                resetCaptureUi();
+            }
+        });
+
+        $('#capturePhotoBtn').on('click', function() {
+            const videoEl = $('#cameraPreview')[0];
+            const canvas = $('#photoCanvas')[0];
+            if (!videoEl || !cameraStream) return;
+
+            const width = videoEl.videoWidth || 640;
+            const height = videoEl.videoHeight || 480;
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(videoEl, 0, 0, width, height);
+
+            canvas.toBlob((blob) => {
+                if (!blob) return;
+                const file = new File([blob], `foto_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                uploadMediaFile(file, 'image', 'image');
+            }, 'image/jpeg', 0.9);
+
+            stopAllStreams();
+            resetCaptureUi();
+        });
+
+        $('#audioRecordBtn').on('click', async function() {
+            if (!ensureReadyForMedia()) return;
+
+            if (mediaRecorder && mediaRecorder.state === 'recording' && captureMode === 'audio') {
+                mediaRecorder.stop();
+                return;
+            }
+
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                alert("Hay una grabación en curso.");
+                return;
+            }
+
+            try {
+                stopAllStreams();
+                captureMode = 'audio';
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioStream = stream;
+                recordedChunks = [];
+                mediaRecorder = new MediaRecorder(stream);
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) recordedChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+                    if (!discardRecording) {
+                        const ext = blob.type.includes('wav') ? 'wav' : (blob.type.includes('mpeg') ? 'mp3' : 'webm');
+                        const file = new File([blob], `audio_${Date.now()}.${ext}`, { type: blob.type || 'audio/webm' });
+                        uploadMediaFile(file, 'audio', 'audio');
+                    }
+                    discardRecording = false;
+                    stopAllStreams();
+                    resetCaptureUi();
+                };
+
+                mediaRecorder.start();
+                $('#audioRecordBtn').text('⏹️');
+                $('#cameraPreview').hide();
+                $('#capturePhotoBtn').hide();
+                setRecordingStatus('Grabando audio...', true);
+                showMediaPreview(true);
+            } catch (err) {
+                console.error(err);
+                alert("No se pudo acceder al micrófono.");
+                stopAllStreams();
+                resetCaptureUi();
+            }
+        });
+
+        $('#videoRecordBtn').on('click', async function() {
+            if (!ensureReadyForMedia()) return;
+
+            if (mediaRecorder && mediaRecorder.state === 'recording' && captureMode === 'video') {
+                mediaRecorder.stop();
+                return;
+            }
+
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                alert("Hay una grabación en curso.");
+                return;
+            }
+
+            try {
+                stopAllStreams();
+                captureMode = 'video';
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                videoStream = stream;
+                const videoEl = $('#cameraPreview')[0];
+                videoEl.srcObject = stream;
+                $('#cameraPreview').show();
+                $('#capturePhotoBtn').hide();
+
+                recordedChunks = [];
+                mediaRecorder = new MediaRecorder(stream);
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) recordedChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'video/webm' });
+                    if (!discardRecording) {
+                        const file = new File([blob], `video_${Date.now()}.webm`, { type: blob.type || 'video/webm' });
+                        uploadMediaFile(file, 'video', 'video');
+                    }
+                    discardRecording = false;
+                    stopAllStreams();
+                    resetCaptureUi();
+                };
+
+                mediaRecorder.start();
+                $('#videoRecordBtn').text('⏹️');
+                setRecordingStatus('Grabando video...', true);
+                showMediaPreview(true);
+            } catch (err) {
+                console.error(err);
+                alert("No se pudo acceder a cámara y micrófono.");
+                stopAllStreams();
+                resetCaptureUi();
+            }
+        });
+
+        $('#stopPreviewBtn').on('click', function() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                discardRecording = true;
+                mediaRecorder.stop();
+                return;
+            }
+            stopAllStreams();
+            resetCaptureUi();
         });
         
         // Insertar emoji al hacer clic

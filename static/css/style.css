@@ -1,31 +1,68 @@
-/* ============ MESSENGER HUB - devChat ============ */
-/* Inspired by iMessage, WhatsApp, Telegram & Messenger */
+/* ============ iMessage-inspired Chat ============ */
+
+/* Bootstrap Icons - Ensure proper rendering */
+.bi {
+    display: inline-block;
+    font-style: normal;
+    font-variant: normal;
+    text-rendering: auto;
+    -webkit-font-smoothing: antialiased;
+    vertical-align: middle;
+}
 
 :root {
-    /* WhatsApp-inspired background */
-    --chat-bg: #efeae2;
+    /* iMessage Colors - Light Mode */
+    --imessage-blue: #007AFF;
+    --imessage-gray: #E5E5EA;
+    --imessage-bg: #FFFFFF;
+    --imessage-header: #F6F6F6;
     
-    /* iMessage-inspired message bubbles */
-    --bubble-sent: linear-gradient(135deg, #0084ff 0%, #0073ea 100%);
-    --bubble-received: #e9ecef;
+    /* Text Colors */
+    --text-primary: #000000;
+    --text-secondary: #8E8E93;
+    --text-on-blue: #FFFFFF;
     
-    /* Accent colors */
-    --accent-whatsapp: #25d366;
-    --accent-telegram: #0088cc;
-    --accent-messenger: #0084ff;
+    /* System Colors */
+    --border-color: #D1D1D6;
+    --input-bg: #F2F2F7;
+    --success: #34C759;
+    --danger: #FF3B30;
+}
+
+/* ============ DARK MODE ============ */
+[data-theme="dark"] {
+    /* iMessage Colors - Dark Mode */
+    --imessage-blue: #0A84FF;
+    --imessage-gray: #2C2C2E;
+    --imessage-bg: #000000;
+    --imessage-header: #1C1C1E;
     
-    /* Base colors */
-    --bg-primary: #ffffff;
-    --bg-secondary: #f8f9fa;
-    --text-primary: #1c1e21;
-    --text-secondary: #65676b;
-    --text-light: #8a8d91;
-    --border-color: #e4e6eb;
+    /* Text Colors */
+    --text-primary: #FFFFFF;
+    --text-secondary: #98989D;
+    --text-on-blue: #FFFFFF;
     
-    /* Shadows */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
-    --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
+    /* System Colors */
+    --border-color: #38383A;
+    --input-bg: #1C1C1E;
+    --success: #30D158;
+    --danger: #FF453A;
+}
+
+/* Respeta preferencia del sistema si no hay manual */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+        --imessage-blue: #0A84FF;
+        --imessage-gray: #2C2C2E;
+        --imessage-bg: #000000;
+        --imessage-header: #1C1C1E;
+        --text-primary: #FFFFFF;
+        --text-secondary: #98989D;
+        --border-color: #38383A;
+        --input-bg: #1C1C1E;
+        --success: #30D158;
+        --danger: #FF453A;
+    }
 }
 
 * {
@@ -35,136 +72,167 @@
 }
 
 body {
-    background: var(--chat-bg);
-    /* WhatsApp-inspired diagonal pattern */
-    background-image: 
-        repeating-linear-gradient(
-            45deg,
-            transparent,
-            transparent 10px,
-            rgba(0, 0, 0, 0.02) 10px,
-            rgba(0, 0, 0, 0.02) 20px
-        );
+    background: var(--imessage-bg);
     color: var(--text-primary);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
     min-height: 100vh;
-    line-height: 1.5;
-    font-size: 15px;
+    line-height: 1.42857;
+    font-size: 17px;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* ============ HEADER ============ */
 .app-header {
-    background: var(--bg-primary);
+    background: var(--imessage-header);
     border-bottom: 1px solid var(--border-color);
-    padding: 2rem 0;
-    margin-bottom: 1.5rem;
-    box-shadow: var(--shadow-sm);
+    padding: 1.5rem 0;
+    margin-bottom: 0;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
 }
 
 .app-title {
     color: var(--text-primary);
     font-weight: 600;
-    font-size: 1.75rem;
+    font-size: 1.5rem;
     letter-spacing: -0.5px;
     margin: 0;
 }
 
+.dark-mode-toggle {
+    position: absolute;
+    right: 0;
+    background: transparent;
+    border: none;
+    font-size: 1.25rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.8;
+    color: var(--text-primary);
+}
+
+.dark-mode-toggle i {
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.dark-mode-toggle:hover {
+    background: var(--input-bg);
+    transform: scale(1.1);
+    opacity: 1;
+}
+
+.dark-mode-toggle:active {
+    transform: scale(0.95);
+}
+
 .app-subtitle {
     color: var(--text-secondary);
-    font-size: 0.9rem;
+    font-size: 0.875rem;
     font-weight: 400;
     margin-top: 0.25rem;
 }
 
 /* ============ PANELS ============ */
 .control-panel {
-    background: var(--bg-primary);
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-    border-radius: 20px;
-    box-shadow: var(--shadow-md);
-    border: 1px solid var(--border-color);
+    background: var(--imessage-header);
+    padding: 1.25rem;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 /* ============ INPUTS ============ */
 .form-control {
-    background: var(--bg-secondary);
-    border: 2px solid transparent;
-    border-radius: 20px;
+    background: var(--input-bg);
+    border: 1px solid transparent;
+    border-radius: 10px;
     color: var(--text-primary);
-    padding: 0.75rem 1rem;
-    font-size: 0.95rem;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.9375rem;
     transition: all 0.3s ease;
 }
 
 .form-control:focus {
-    background: var(--bg-primary);
-    border-color: var(--accent-messenger);
+    background: var(--imessage-bg);
+    border-color: var(--imessage-blue);
     color: var(--text-primary);
-    box-shadow: 0 0 0 3px rgba(0, 132, 255, 0.1);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
     outline: none;
 }
 
 .form-control::placeholder {
-    color: var(--text-light);
+    color: var(--text-secondary);
+}
+
+.form-control:disabled {
+    background: var(--input-bg);
+    opacity: 0.6;
 }
 
 /* ============ BUTTONS ============ */
 .btn {
-    border-radius: 20px;
-    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    padding: 0.625rem 1.25rem;
     font-weight: 500;
-    font-size: 0.95rem;
+    font-size: 0.9375rem;
     border: none;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
     cursor: pointer;
-    box-shadow: var(--shadow-sm);
 }
 
 .btn-primary {
-    background: var(--accent-messenger);
+    background: var(--imessage-blue);
     color: white;
-    box-shadow: var(--shadow-md);
 }
 
 .btn-primary:hover {
-    background: #0073ea;
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-lg);
+    background: #0056D6;
+    transform: scale(1.02);
 }
 
 .btn-success {
-    background: var(--accent-whatsapp);
+    background: var(--success);
     color: white;
-    box-shadow: var(--shadow-md);
 }
 
 .btn-success:hover {
-    background: #20bd5a;
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-lg);
+    background: #2DB04C;
+    transform: scale(1.02);
 }
 
 .btn-danger {
-    background: #ff4458;
+    background: var(--danger);
     color: white;
-    box-shadow: var(--shadow-md);
 }
 
 .btn-danger:hover {
-    background: #ff2d43;
-    transform: translateY(-1px);
+    background: #E6332A;
+    transform: scale(1.02);
 }
 
 .btn-secondary {
-    background: var(--bg-secondary);
+    background: var(--input-bg);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
 }
 
 .btn-secondary:hover {
-    background: var(--bg-primary);
-    border-color: var(--accent-messenger);
+    background: var(--imessage-gray);
 }
 
 /* ============ ROOM INFO ============ */
@@ -209,7 +277,7 @@ body {
     border: 1px solid var(--border-color);
 }
 
-/* Green online indicator (WhatsApp-style) */
+/* Green online indicator */
 #usersList li::before {
     content: '';
     position: absolute;
@@ -218,9 +286,9 @@ body {
     transform: translateY(-50%);
     width: 8px;
     height: 8px;
-    background: var(--accent-whatsapp);
+    background: var(--success);
     border-radius: 50%;
-    box-shadow: 0 0 0 2px var(--bg-secondary);
+    box-shadow: 0 0 0 2px var(--imessage-bg);
 }
 
 #usersList li:hover {
@@ -244,28 +312,32 @@ body {
 
 /* ============ CHAT CONTAINER ============ */
 .chat-container {
-    background: var(--bg-primary);
-    border-radius: 20px;
-    border: 1px solid var(--border-color);
+    background: var(--imessage-bg);
+    border-radius: 0;
+    border: none;
     overflow: hidden;
-    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 200px);
+    transition: background-color 0.3s ease;
+}
+
+.card-body {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
 /* ============ MESSAGES ============ */
 #messages {
-    background: var(--chat-bg);
-    background-image: 
-        repeating-linear-gradient(
-            45deg,
-            transparent,
-            transparent 10px,
-            rgba(0, 0, 0, 0.02) 10px,
-            rgba(0, 0, 0, 0.02) 20px
-        );
+    background: var(--imessage-bg);
     border: none;
-    padding: 1.5rem;
-    max-height: 500px;
+    padding: 1.25rem;
+    flex-grow: 1;
     overflow-y: auto;
+    list-style: none;
+    transition: background-color 0.3s ease;
 }
 
 #messages::-webkit-scrollbar {
@@ -291,7 +363,7 @@ body {
 .list-group-item {
     background: transparent;
     border: none;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
     border-radius: 0;
     padding: 0;
     transition: none;
@@ -306,48 +378,38 @@ body {
 /* Message bubble styling */
 .message-bubble,
 .list-group-item > div {
-    max-width: 70%;
-    padding: 0.75rem 1rem;
+    max-width: 65%;
+    padding: 0.5rem 0.875rem;
     border-radius: 18px;
     word-wrap: break-word;
-    box-shadow: var(--shadow-sm);
-    animation: messageSlideIn 0.3s ease;
     position: relative;
+    line-height: 1.35;
+    font-size: 0.9375rem;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-@keyframes messageSlideIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Sent messages (own) - iMessage blue gradient, right aligned */
+/* Sent messages (own) - iMessage blue, right aligned */
 .list-group-item[data-own="true"] {
     align-items: flex-end;
 }
 
 .list-group-item[data-own="true"] .message-bubble,
 .list-group-item[data-own="true"] > div {
-    background: var(--bubble-sent);
-    color: white;
+    background: var(--imessage-blue);
+    color: var(--text-on-blue);
     border-bottom-right-radius: 4px;
     margin-left: auto;
 }
 
 .list-group-item[data-own="true"] strong {
-    color: rgba(255, 255, 255, 0.9);
-    font-weight: 600;
-    font-size: 0.85rem;
+    display: none;
 }
 
 .list-group-item[data-own="true"] small {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.6875rem;
+    margin-right: 0.25rem;
+    text-align: right;
 }
 
 /* Received messages - gray, left aligned */
@@ -357,27 +419,38 @@ body {
 
 .list-group-item[data-own="false"] .message-bubble,
 .list-group-item[data-own="false"] > div {
-    background: var(--bubble-received);
+    background: var(--imessage-gray);
     color: var(--text-primary);
     border-bottom-left-radius: 4px;
 }
 
 .list-group-item[data-own="false"] strong {
-    color: var(--accent-messenger);
+    color: var(--text-secondary);
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
+    display: block;
+    margin-bottom: 0.125rem;
 }
 
 .list-group-item[data-own="false"] small {
     color: var(--text-secondary);
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
+    margin-left: 0.25rem;
 }
 
-/* Fallback for items without data-own attribute */
+/* System messages */
+.list-group-item:not([data-own]) {
+    align-items: center;
+}
+
 .list-group-item:not([data-own]) .message-bubble,
 .list-group-item:not([data-own]) > div {
-    background: var(--bubble-received);
-    color: var(--text-primary);
+    background: transparent;
+    color: var(--text-secondary);
+    max-width: 100%;
+    text-align: center;
+    font-size: 0.8125rem;
+    padding: 0.25rem 0.5rem;
 }
 
 .list-group-item strong {
@@ -393,9 +466,49 @@ body {
 
 /* ============ MESSAGE CONTROLS ============ */
 .message-controls {
-    background: var(--bg-primary);
-    padding: 1rem 1.5rem;
+    background: var(--imessage-bg);
+    padding: 0.75rem 1rem;
     border-top: 1px solid var(--border-color);
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.message-controls .input-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.message-controls .form-control {
+    flex: 1;
+    border-radius: 20px;
+    padding: 0.625rem 1rem;
+}
+
+.message-controls .btn-primary {
+    border-radius: 50%;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+
+.message-controls .btn-primary:hover {
+    transform: scale(1.1);
+}
+
+.message-controls .btn-primary:active {
+    transform: scale(0.95);
+}
+
+.message-controls .btn-primary i {
+    font-size: 0.875rem;
+    line-height: 1;
 }
 
 .btn-outline-secondary {
@@ -403,51 +516,66 @@ body {
     border: none;
     color: var(--text-secondary);
     font-size: 1.25rem;
-    padding: 0.5rem;
+    padding: 0.375rem;
     border-radius: 50%;
-    transition: all 0.3s ease;
-    width: 40px;
-    height: 40px;
+    transition: all 0.2s ease;
+    width: 36px;
+    height: 36px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
+}
+
+.btn-outline-secondary i {
+    font-size: 1.25rem;
+    line-height: 1;
+    transition: transform 0.2s ease;
 }
 
 .btn-outline-secondary:hover {
-    background: var(--bg-secondary);
-    color: var(--accent-messenger);
+    background: var(--input-bg);
     transform: scale(1.1);
+}
+
+.btn-outline-secondary:hover i {
+    transform: scale(1.1);
+}
+
+.btn-outline-secondary:active {
+    transform: scale(0.95);
 }
 
 /* ============ EMOJI PICKER ============ */
 #emojiPicker {
-    background: var(--bg-primary);
+    background: var(--imessage-bg);
     border: 1px solid var(--border-color);
-    border-radius: 16px;
-    box-shadow: var(--shadow-lg);
-    padding: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    padding: 0.75rem;
+    transition: all 0.3s ease;
 }
 
 .emoji-item {
     background: transparent;
     border: none;
-    padding: 0.5rem;
-    border-radius: 8px;
-    transition: all 0.2s ease;
+    padding: 0.375rem;
+    border-radius: 6px;
+    transition: all 0.15s ease;
     cursor: pointer;
 }
 
 .emoji-item:hover {
-    background: var(--bg-secondary);
-    transform: scale(1.2);
+    background: var(--input-bg);
+    transform: scale(1.15);
 }
 
 /* ============ MODALS ============ */
 #cameraModal {
-    background: var(--bg-primary);
+    background: var(--imessage-bg);
     border: 1px solid var(--border-color);
-    border-radius: 20px;
-    box-shadow: var(--shadow-lg);
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
     padding: 2rem;
 }
 
@@ -459,56 +587,145 @@ body {
 }
 
 #cameraStream {
-    border-radius: 16px;
-    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
     overflow: hidden;
 }
 
 #audioControls, #videoControls {
-    background: var(--bg-secondary);
+    background: var(--input-bg);
     border: 1px solid var(--border-color);
-    border-radius: 16px;
+    border-radius: 12px;
     padding: 1rem;
 }
 
 #videoPreview {
-    border-radius: 16px;
-    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
     overflow: hidden;
 }
 
 /* ============ MULTIMEDIA ============ */
 .list-group-item img {
-    border: 2px solid rgba(255, 255, 255, 0.2);
     border-radius: 12px;
     max-width: 100%;
-    margin-top: 0.5rem;
-    box-shadow: var(--shadow-md);
+    margin-top: 0.25rem;
+    display: block;
+}
+
+.list-group-item[data-own="false"] img {
+    border: none;
+}
+
+.list-group-item[data-own="true"] img {
+    border: none;
 }
 
 .list-group-item audio,
 .list-group-item video {
     border-radius: 12px;
-    background: rgba(0, 0, 0, 0.05);
     max-width: 100%;
+    margin-top: 0.25rem;
+    display: block;
+}
+
+.list-group-item[data-own="true"] audio,
+.list-group-item[data-own="true"] video {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Audio/Video player customization for blue bubbles */
+.list-group-item[data-own="true"] audio::-webkit-media-controls-panel {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.list-group-item[data-own="true"] video::-webkit-media-controls-panel {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* ============ MEDIA CAPTURE ============ */
+.capture-controls {
+    display: flex;
+    gap: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--imessage-bg);
+    border-top: 1px solid var(--border-color);
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.capture-controls .btn-outline-secondary {
+    font-size: 1.25rem;
+    width: 42px;
+    height: 42px;
+}
+
+.media-preview {
+    background: var(--imessage-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 0.75rem;
+    margin: 0.75rem;
+    transition: all 0.3s ease;
+}
+
+#cameraPreview {
+    width: 100%;
+    max-height: 320px;
+    border-radius: 10px;
+    background: #000;
+}
+
+.recording-status {
     margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.recording-status.active {
+    color: var(--danger);
+    font-weight: 600;
+}
+
+.preview-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    justify-content: center;
 }
 
 /* ============ UTILITIES ============ */
 .text-muted {
-    color: var(--text-light) !important;
+    color: var(--text-secondary) !important;
 }
 
-.text-success {
-    color: var(--accent-whatsapp) !important;
+.text-center {
+    text-align: center !important;
 }
 
-.text-warning {
-    color: #ffb02e !important;
+/* ============ MODALS ============ */
+.modal-content {
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background: var(--imessage-bg);
+    transition: all 0.3s ease;
 }
 
-.text-danger {
-    color: #ff4458 !important;
+.modal-header {
+    border-bottom: 1px solid var(--border-color);
+    background: var(--imessage-header);
+    transition: all 0.3s ease;
+}
+
+.modal-footer {
+    border-top: 1px solid var(--border-color);
+    background: var(--imessage-header);
+    transition: all 0.3s ease;
+}
+
+.btn-close {
+    background: transparent;
+    filter: var(--text-primary);
 }
 
 /* ============ RESPONSIVE ============ */
