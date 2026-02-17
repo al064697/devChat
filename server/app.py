@@ -9,6 +9,9 @@
 - emit envía mensajes a los clientes conectados
 - datetime se usa para marcar la hora de los mensajes
 - FirebaseHandler es una clase personalizada para interactuar con Firebase (Firestore y Storage)
+- cloudinary_config contiene la configuración y función para subir archivos multimedia a Cloudinary
+- requests y BytesIO se usan para manejar descargas de archivos desde Cloudinary
+- urllib.parse se usa para manejar URLs de manera segura (aunque no se muestra en este fragmento, es útil para futuras mejoras)
 """
 
 from flask import Flask, render_template, request, send_file

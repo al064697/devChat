@@ -1,3 +1,12 @@
+        // ============================================================
+        // MODULO chat.js
+        // - Conecta con Socket.IO y mantiene estado de usuario/sala.
+        // - Maneja multimedia (foto, audio, video, archivos) y subidas.
+        // - Controla videollamadas WebRTC (peers, ICE, UI fullscreen).
+        // - Renderiza mensajes, previews y modales en el chat.
+        // ============================================================
+
+        // Canal principal de tiempo real hacia el servidor
         // Se crea una conexión con el servidor
         const socket = io({
             reconnection: true,  // Habilita la reconexión automática
@@ -5,6 +14,7 @@
             reconnectionDelay: 1000,  // Tiempo entre intentos en milisegundos
         }); 
 
+        // Estado base del usuario y de la sala activa
         let username = '';  // Variable para almacenar el nombre de usuario
         let currentRoom = null;  // Variable para almacenar la sala actual
         let typingTimeout = null;  // Temporizador para el indicador de "escribiendo..."
@@ -24,6 +34,7 @@
         const peerConnections = {};  // RTCPeerConnection por usuario remoto
         const peerLabels = {};  // Etiquetas de nombre por usuario remoto
 
+        // Configuracion ICE/STUN para negociar conexiones P2P
         const rtcConfig = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -216,6 +227,7 @@
         function uploadMediaFile(file, mediaType, msgType) {
             if (!ensureReadyForMedia()) return;
 
+            // Limites por tipo para evitar cargas excesivas
             let maxSize = 50 * 1024 * 1024; // 50MB por defecto
             if (msgType === 'image') {
                 maxSize = 25 * 1024 * 1024; // 25MB imagen
@@ -236,6 +248,7 @@
             formData.append('room', currentRoom);
             formData.append('username', username);
 
+            // Subida al endpoint /upload (Cloudinary via backend)
             fetch('/upload', {
                 method: 'POST',
                 body: formData
@@ -243,6 +256,7 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    // El backend devuelve URL y metadatos para el mensaje
                     const content = msgType === 'file' || msgType === 'audio'
                         ? { url: data.url, filename: file.name, size: file.size }
                         : data.url;
@@ -318,6 +332,7 @@
             peerConnections[peerId] = pc;
             if (usernameLabel) peerLabels[peerId] = usernameLabel;
 
+            // Adjunta las pistas locales para compartir camara/microfono
             if (localStream) {
                 localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
             }
@@ -356,6 +371,7 @@
             if (isInCall) return;
 
             try {
+                // Solicita permisos del usuario y prepara el stream local
                 localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 const localVideo = document.getElementById('localVideo');
                 if (localVideo) localVideo.srcObject = localStream;
@@ -364,6 +380,7 @@
                 setCallOverlay(true);
                 document.getElementById('videoCallBtn')?.classList.add('is-active');
 
+                // Notifica al backend para recibir peers existentes
                 socket.emit('webrtc_join_call', { room: currentRoom, username });
             } catch (err) {
                 console.error(err);
@@ -377,6 +394,7 @@
 
             socket.emit('webrtc_leave_call', { room: currentRoom });
 
+            // Cierra conexiones P2P y limpia el grid
             Object.values(peerConnections).forEach((pc) => pc.close());
             Object.keys(peerConnections).forEach((key) => delete peerConnections[key]);
 
@@ -828,6 +846,7 @@
                         </li>
                     `);
                 } else if (msg.type === "file") {
+                    // Archivos: se construye vista previa segun extension
                     const fileUrl = msg.content && msg.content.url ? msg.content.url : msg.content;
                     const fileName = msg.content && msg.content.filename ? msg.content.filename : 'Archivo';
                     const fileExt = fileName.split('.').pop().toLowerCase();
@@ -932,6 +951,7 @@
                     is_typing: true
                 });
                 
+                // Debounce: evita enviar "typing false" en cada tecla
                 clearTimeout(typingTimeout);
                 typingTimeout = setTimeout(function() {
                     socket.emit('typing', {

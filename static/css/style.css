@@ -11,7 +11,7 @@
 }
 
 :root {
-    /* Colores iMessage - Modo claro */
+    /* Colores - Modo claro */
     --imessage-blue: #007AFF;
     --imessage-gray: #E5E5EA;
     --imessage-bg: #FFFFFF;
@@ -31,7 +31,7 @@
 
 /* ============ MODO OSCURO ============ */
 [data-theme="dark"] {
-    /* Colores iMessage - Modo oscuro */
+    /* Colores - Modo oscuro */
     --imessage-blue: #0A84FF;
     --imessage-gray: #2C2C2E;
     --imessage-bg: #000000;
