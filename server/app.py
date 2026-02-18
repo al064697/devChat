@@ -243,6 +243,17 @@ def handle_webrtc_ice(data):
         'candidate': data['candidate']
     }, to=target)
 
+# Transmitir cambios de estado de medios (cámara/micrófono)
+@socketio.on('media_state_change')
+def handle_media_state_change(data):
+    room = data.get('room')
+    if room:
+        emit('media_state_change', {
+            'from': request.sid,
+            'type': data.get('type'),  # 'camera' o 'microphone'
+            'enabled': data.get('enabled')
+        }, room=room, skip_sid=request.sid)  # Envía a todos en la sala excepto al remitente
+
 @app.route('/upload', methods=['POST'])
 def upload_file():
     """

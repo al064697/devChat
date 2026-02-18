@@ -33,6 +33,7 @@
         let isInCall = false;  // Estado de llamada activa
         const peerConnections = {};  // RTCPeerConnection por usuario remoto
         const peerLabels = {};  // Etiquetas de nombre por usuario remoto
+        const peerStates = {};  // Estado de cámara y micrófono por peer {peerId: {camera: bool, microphone: bool}}
 
         // Configuracion ICE/STUN para negociar conexiones P2P
         const rtcConfig = {
@@ -207,8 +208,10 @@
             captureMode = null;
             $('#cameraPreview').prop('srcObject', null).hide();
             $('#capturePhotoBtn').hide();
-            $('#audioRecordBtn').text('🎙️');
-            $('#videoRecordBtn').text('🎥');
+            $('#pauseResumeBtn').hide();
+            $('#discardBtn').hide();
+            $('#audioRecordBtn').html('<i class="bi bi-mic-fill"></i>').attr('title', 'Grabar audio');
+            $('#videoRecordBtn').html('<i class="bi bi-camera-video-fill"></i>').attr('title', 'Grabar video');
             setRecordingStatus('', false);
             showMediaPreview(false);
         }
@@ -285,6 +288,59 @@
             overlay.setAttribute('aria-hidden', show ? 'false' : 'true');
         }
 
+        // Actualiza los indicadores de estado local (cámara/micrófono)
+        function updateLocalIndicators() {
+            if (!localStream) return;
+            
+            const localTile = document.querySelector('[data-peer="local"]');
+            if (!localTile) return;
+            
+            const camIndicator = localTile.querySelector('.indicator-cam');
+            const micIndicator = localTile.querySelector('.indicator-mic');
+            
+            const videoEnabled = localStream.getVideoTracks()[0]?.enabled ?? true;
+            const audioEnabled = localStream.getAudioTracks()[0]?.enabled ?? true;
+            
+            if (camIndicator) {
+                camIndicator.classList.toggle('disabled', !videoEnabled);
+                camIndicator.innerHTML = videoEnabled 
+                    ? '<i class="bi bi-camera-video-fill"></i>' 
+                    : '<i class="bi bi-camera-video-off-fill"></i>';
+            }
+            
+            if (micIndicator) {
+                micIndicator.classList.toggle('disabled', !audioEnabled);
+                micIndicator.innerHTML = audioEnabled 
+                    ? '<i class="bi bi-mic-fill"></i>' 
+                    : '<i class="bi bi-mic-mute-fill"></i>';
+            }
+        }
+        
+        // Actualiza los indicadores de estado remoto (cámara/micrófono)
+        function updatePeerIndicators(peerId, camera, microphone) {
+            const tile = document.querySelector(`[data-peer="${peerId}"]`);
+            if (!tile) return;
+            
+            peerStates[peerId] = { camera, microphone };
+            
+            const camIndicator = tile.querySelector('.indicator-cam');
+            const micIndicator = tile.querySelector('.indicator-mic');
+            
+            if (camIndicator) {
+                camIndicator.classList.toggle('disabled', !camera);
+                camIndicator.innerHTML = camera 
+                    ? '<i class="bi bi-camera-video-fill"></i>' 
+                    : '<i class="bi bi-camera-video-off-fill"></i>';
+            }
+            
+            if (micIndicator) {
+                micIndicator.classList.toggle('disabled', !microphone);
+                micIndicator.innerHTML = microphone 
+                    ? '<i class="bi bi-mic-fill"></i>' 
+                    : '<i class="bi bi-mic-mute-fill"></i>';
+            }
+        }
+
         // Agrega un video remoto al grid de la llamada
         function addRemoteVideo(peerId, stream) {
             const grid = document.getElementById('callGrid');
@@ -304,9 +360,32 @@
                 label.className = 'call-label';
                 label.textContent = peerLabels[peerId] || 'Usuario';
 
+                // Contenedor de indicadores de estado
+                const indicators = document.createElement('div');
+                indicators.className = 'call-indicators';
+                
+                const camIndicator = document.createElement('span');
+                camIndicator.className = 'indicator-cam';
+                camIndicator.title = 'Cámara';
+                camIndicator.innerHTML = '<i class="bi bi-camera-video-fill"></i>';
+                
+                const micIndicator = document.createElement('span');
+                micIndicator.className = 'indicator-mic';
+                micIndicator.title = 'Micrófono';
+                micIndicator.innerHTML = '<i class="bi bi-mic-fill"></i>';
+                
+                indicators.appendChild(camIndicator);
+                indicators.appendChild(micIndicator);
+
                 tile.appendChild(video);
                 tile.appendChild(label);
+                tile.appendChild(indicators);
                 grid.appendChild(tile);
+                
+                // Inicializar estado del peer
+                if (!peerStates[peerId]) {
+                    peerStates[peerId] = { camera: true, microphone: true };
+                }
             }
 
             const videoEl = tile.querySelector('video');
@@ -379,6 +458,7 @@
                 isInCall = true;
                 setCallOverlay(true);
                 document.getElementById('videoCallBtn')?.classList.add('is-active');
+                updateLocalIndicators();
 
                 // Notifica al backend para recibir peers existentes
                 socket.emit('webrtc_join_call', { room: currentRoom, username });
@@ -651,7 +731,9 @@
                 };
 
                 mediaRecorder.start();
-                $('#audioRecordBtn').text('⏹️');
+                $('#audioRecordBtn').html('<i class="bi bi-stop-fill"></i>').attr('title', 'Detener grabación');
+                $('#pauseResumeBtn').show().html('<i class="bi bi-pause-fill"></i> Pausar');
+                $('#discardBtn').show();
                 $('#cameraPreview').hide();
                 $('#capturePhotoBtn').hide();
                 setRecordingStatus('Grabando audio...', true);
@@ -707,7 +789,9 @@
                 };
 
                 mediaRecorder.start();
-                $('#videoRecordBtn').text('⏹️');
+                $('#videoRecordBtn').html('<i class="bi bi-stop-fill"></i>').attr('title', 'Detener grabación');
+                $('#pauseResumeBtn').show().html('<i class="bi bi-pause-fill"></i> Pausar');
+                $('#discardBtn').show();
                 setRecordingStatus('Grabando video...', true);
                 showMediaPreview(true);
             } catch (err) {
@@ -729,6 +813,26 @@
             resetCaptureUi();
         });
 
+        // Pausa o reanuda la grabación
+        $('#pauseResumeBtn').on('click', function() {
+            if (!mediaRecorder) return;
+            if (mediaRecorder.state === 'recording') {
+                mediaRecorder.pause();
+                $(this).html('<i class="bi bi-play-fill"></i> Reanudar');
+            } else if (mediaRecorder.state === 'paused') {
+                mediaRecorder.resume();
+                $(this).html('<i class="bi bi-pause-fill"></i> Pausar');
+            }
+        });
+
+        // Descarta la grabación actual
+        $('#discardBtn').on('click', function() {
+            if (!mediaRecorder) return;
+            discardRecording = true;
+            mediaRecorder.stop();
+            showToast('warning', 'Grabación descartada');
+        });
+
         // Boton principal de videollamada
         $('#videoCallBtn').on('click', function() {
             if (isInCall) {
@@ -741,21 +845,33 @@
         // Controla el microfono en llamada
         $('#toggleMic').on('click', function() {
             if (!localStream) return;
+            let isMuted = false;
             localStream.getAudioTracks().forEach((track) => {
                 track.enabled = !track.enabled;
-                $(this).toggleClass('is-muted', !track.enabled);
-                $(this).find('i').toggleClass('bi-mic-mute-fill', !track.enabled).toggleClass('bi-mic-fill', track.enabled);
+                isMuted = !track.enabled;
             });
+            $(this).toggleClass('is-muted', isMuted);
+            $(this).find('i').toggleClass('bi-mic-mute-fill', isMuted).toggleClass('bi-mic-fill', !isMuted);
+            
+            // Actualizar indicador local y transmitir estado
+            updateLocalIndicators();
+            socket.emit('media_state_change', { room: currentRoom, type: 'microphone', enabled: !isMuted });
         });
 
         // Controla la camara en llamada
         $('#toggleCam').on('click', function() {
             if (!localStream) return;
+            let isMuted = false;
             localStream.getVideoTracks().forEach((track) => {
                 track.enabled = !track.enabled;
-                $(this).toggleClass('is-muted', !track.enabled);
-                $(this).find('i').toggleClass('bi-camera-video-off-fill', !track.enabled).toggleClass('bi-camera-video-fill', track.enabled);
+                isMuted = !track.enabled;
             });
+            $(this).toggleClass('is-muted', isMuted);
+            $(this).find('i').toggleClass('bi-camera-video-off-fill', isMuted).toggleClass('bi-camera-video-fill', !isMuted);
+            
+            // Actualizar indicador local y transmitir estado
+            updateLocalIndicators();
+            socket.emit('media_state_change', { room: currentRoom, type: 'camera', enabled: !isMuted });
         });
 
         // Boton para finalizar llamada desde el overlay
@@ -1097,6 +1213,17 @@
                 delete peerConnections[data.id];
             }
             removeRemoteVideo(data.id);
+        });
+
+        // Recibe cambios de estado de cámara/micrófono de otros usuarios
+        socket.on('media_state_change', function(data) {
+            if (!data.from || !data.type || data.enabled === undefined) return;
+            
+            if (data.type === 'camera') {
+                updatePeerIndicators(data.from, data.enabled, peerStates[data.from]?.microphone ?? true);
+            } else if (data.type === 'microphone') {
+                updatePeerIndicators(data.from, peerStates[data.from]?.camera ?? true, data.enabled);
+            }
         });
 
         // Evento para mostrar el indicador "está escribiendo..."

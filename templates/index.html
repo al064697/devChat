@@ -117,6 +117,8 @@
                     <div id="recordingStatus" class="recording-status"></div>
                     <div class="preview-actions">
                         <button id="capturePhotoBtn" class="btn btn-primary" type="button">Capturar foto</button>
+                        <button id="pauseResumeBtn" class="btn btn-warning" type="button" style="display: none;"><i class="bi bi-pause-fill"></i> Pausar</button>
+                        <button id="discardBtn" class="btn btn-danger" type="button" style="display: none;"><i class="bi bi-trash-fill"></i> Descartar</button>
                         <button id="stopPreviewBtn" class="btn btn-secondary" type="button">Cerrar</button>
                     </div>
                 </div>
@@ -146,6 +148,10 @@
             <div class="call-tile" data-peer="local">
                 <video id="localVideo" autoplay muted playsinline></video>
                 <span class="call-label">Tu</span>
+                <div class="call-indicators">
+                    <span class="indicator-cam" title="Cámara"><i class="bi bi-camera-video-fill"></i></span>
+                    <span class="indicator-mic" title="Micrófono"><i class="bi bi-mic-fill"></i></span>
+                </div>
             </div>
             <!-- Videos remotos se agregan dinamicamente -->
         </div>

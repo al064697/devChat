@@ -214,6 +214,33 @@ body {
     font-size: 0.8rem;
 }
 
+/* Indicadores de estado (cámara/micrófono) */
+.call-indicators {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.call-indicators span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+}
+
+.call-indicators span.disabled {
+    background: rgba(220, 53, 69, 0.7);
+    color: #fff;
+}
+
 /* Controles de la llamada */
 .call-controls {
     position: fixed;
@@ -782,6 +809,12 @@ body {
     gap: 0.5rem;
     margin-top: 0.75rem;
     justify-content: center;
+    flex-wrap: wrap;
+}
+
+.preview-actions .btn {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.75rem;
 }
 
 /* ============ UTILIDADES ============ */
