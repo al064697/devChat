@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="30" fill="#007AFF"/>
+  
+  <!-- Chat bubbles icon -->
+  <g fill="white">
+    <!-- Left bubble -->
+    <rect x="12" y="16" width="28" height="20" rx="4" ry="4"/>
+    <!-- Left bubble tail -->
+    <polygon points="12,34 8,38 14,34"/>
+    
+    <!-- Right bubble (smaller, overlapping) -->
+    <rect x="28" y="30" width="24" height="16" rx="3" ry="3" opacity="0.8"/>
+    <!-- Right bubble tail -->
+    <polygon points="52,44 56,48 50,46" opacity="0.8"/>
+  </g>
+</svg>
